@@ -53,6 +53,17 @@ with st.sidebar:
     st.caption(f"Categoria mais frequente: {resumo_base['categoria_top']} ({resumo_base['categoria_top_total']} registros)")
 
     st.markdown("---")
+    st.markdown("### 📌 KPIs por Categoria")
+    kpis = obter_kpis_por_categoria()
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Crítica", kpis["critica"]["nome"], f"{kpis['critica']['valor']} reclamações")
+    with col2:
+        st.metric("Melhor", kpis["melhor"]["nome"], f"{kpis['melhor']['valor']} elogios")
+    with col3:
+        st.metric("Mais vista", kpis["mais_vista"]["nome"], f"{kpis['mais_vista']['valor']} registros")
+
+    st.markdown("---")
     if st.button("Limpar Conversa"):
         st.session_state.mensagens = []
         st.session_state.pergunta_pendente = None
@@ -126,6 +137,27 @@ def obter_resumo_base():
         "negativas": negativas,
         "categoria_top": categoria_nome,
         "categoria_top_total": categoria_mais_frequente[1],
+    }
+
+@st.cache_data
+def obter_kpis_por_categoria():
+    categoria_mais_reclamada = ranking_negativo_global.most_common(1)[0] if ranking_negativo_global else ("desconhecido", 0)
+    categoria_mais_positiva = ranking_positivo_global.most_common(1)[0] if ranking_positivo_global else ("desconhecido", 0)
+    categoria_mais_frequente = ranking_geral_global.most_common(1)[0] if ranking_geral_global else ("desconhecido", 0)
+
+    return {
+        "critica": {
+            "nome": categoria_mais_reclamada[0].replace("_", " ").title(),
+            "valor": categoria_mais_reclamada[1],
+        },
+        "melhor": {
+            "nome": categoria_mais_positiva[0].replace("_", " ").title(),
+            "valor": categoria_mais_positiva[1],
+        },
+        "mais_vista": {
+            "nome": categoria_mais_frequente[0].replace("_", " ").title(),
+            "valor": categoria_mais_frequente[1],
+        },
     }
 
 def limpar_texto(txt):
