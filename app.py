@@ -1,8 +1,8 @@
 import os
+import csv
 import unicodedata
 from collections import Counter
-import chromadb
-from sentence_transformers import SentenceTransformer
+from datetime import datetime
 import streamlit as st
 import plotly.express as px
 
@@ -10,21 +10,158 @@ from src.prompt_config import SYSTEM_PROMPT, detetar_intencao
 
 st.set_page_config(
     page_title="Tech Challenge - Fase 4 | FIAP Pos-Tech",
-    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0c0c0c; color: #e0e0e0; }
-    [data-testid="stSidebar"] { background-color: #141414; border-right: 1px solid #ff005533; }
-    h1, h2, h3 { color: #ffffff !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .neon-title { color: #ff0055 !important; font-weight: 800; letter-spacing: 1px; }
-    .stChatMessage { background-color: #1a1a1a !important; border: 1px solid #ff005522; border-radius: 8px; color: #f1f1f1; }
-    .stButton > button { background-color: #ff0055 !important; color: white !important; border: none; border-radius: 4px; font-weight: bold; width: 100%; }
-    .stButton > button:hover { background-color: #cc0044 !important; }
-    .streamlit-expanderHeader { background-color: #141414 !important; color: #ff0055 !important; border: 1px solid #ff005533; border-radius: 4px; }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+    .stApp {
+        background-color: #050406;
+        background-image:
+            radial-gradient(circle, rgba(238, 0, 111, 0.22) 1px, transparent 1.4px),
+            radial-gradient(circle, rgba(255, 255, 255, 0.13) 0.8px, transparent 1.3px),
+            radial-gradient(ellipse at 50% 0%, rgba(100, 0, 52, 0.2), transparent 55%);
+        background-size: 19px 19px, 31px 31px, auto;
+        background-position: 0 0, 8px 12px, center top;
+        color: #eee8ed;
+        font-family: 'Rajdhani', 'Bahnschrift', 'Arial Narrow', sans-serif;
+        min-height: 100vh;
+    }
+    html, body { background-color: #050406 !important; }
+    [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stBottomBlockContainer"] {
+        background: transparent !important;
+    }
+    [data-testid="stBottomBlockContainer"] > div {
+        background-color: #050406 !important;
+        background-image:
+            radial-gradient(circle, rgba(238, 0, 111, 0.22) 1px, transparent 1.4px),
+            radial-gradient(circle, rgba(255, 255, 255, 0.13) 0.8px, transparent 1.3px);
+        background-size: 19px 19px, 31px 31px;
+        background-position: 0 0, 8px 12px;
+    }
+    [data-testid="stHeader"] { background: transparent; }
+    [data-testid="stSidebar"] {
+        background: rgba(8, 6, 10, 0.96);
+        border-right: 1px solid rgba(255, 0, 117, 0.35);
+    }
+    [data-testid="stChatInput"] {
+        background: rgba(12, 8, 13, 0.96) !important;
+        border: 1px solid rgba(255, 0, 117, 0.42);
+        border-radius: 3px;
+    }
+    [data-testid="stChatInput"] textarea {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    h1, h2, h3 {
+        color: #fff !important;
+        font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif;
+        letter-spacing: 0;
+    }
+    .brand-lockup {
+        position: relative;
+        isolation: isolate;
+        max-width: 48rem;
+        margin: 0 auto 1.4rem;
+        padding: 1.7rem 1rem 1.1rem;
+        text-align: center;
+    }
+    .brand-lockup::before, .brand-lockup::after {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        z-index: -1;
+        content: '';
+        transform: translateX(-50%);
+        clip-path: polygon(20% 0, 80% 0, 100% 50%, 80% 100%, 20% 100%, 0 50%);
+        border: 1px solid rgba(255, 0, 117, 0.34);
+        pointer-events: none;
+    }
+    .brand-lockup::before { width: min(76vw, 34rem); height: 12.5rem; }
+    .brand-lockup::after {
+        top: 1.4rem;
+        width: min(48vw, 20rem);
+        height: 9.5rem;
+        border-color: rgba(255, 0, 117, 0.22);
+    }
+    .brand-mark {
+        color: #f00075;
+        font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif;
+        font-size: 5rem;
+        font-weight: 500;
+        line-height: 1;
+        text-shadow: 0 0 22px rgba(240, 0, 117, 0.35);
+    }
+    .brand-kicker {
+        margin: 0.7rem 0 0.2rem;
+        color: #f5edf2;
+        font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif;
+        font-size: 0.85rem;
+    }
+    .brand-subtitle {
+        margin: 0;
+        color: #c7bac3;
+        font-size: 1.2rem;
+        font-weight: 500;
+    }
+    .stChatMessage {
+        background: rgba(14, 10, 15, 0.92) !important;
+        border: 1px solid rgba(255, 0, 117, 0.25);
+        border-radius: 3px;
+        color: #f1eaf0;
+    }
+    .stButton > button {
+        background: #ed006f !important;
+        color: #fff !important;
+        border: 1px solid #ff3b98 !important;
+        border-radius: 2px;
+        font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .stButton > button:hover {
+        background: #ff1687 !important;
+        border-color: #ff75b7 !important;
+    }
+    .streamlit-expanderHeader {
+        background: rgba(13, 9, 14, 0.94) !important;
+        color: #ff4b9c !important;
+        border: 1px solid rgba(255, 0, 117, 0.32);
+        border-radius: 2px;
+    }
+    [data-testid="stSidebar"] h3 { font-size: 0.95rem !important; }
+    [data-testid="stSidebar"] [data-testid="stMetricValue"] { font-size: 1rem !important; }
+    [data-testid="stSidebar"] [data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
+    [data-testid="stSidebar"] [data-testid="stMetricDelta"] { font-size: 0.7rem !important; }
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] label { font-size: 0.75rem !important; }
+    [data-testid="stSidebar"] [data-testid="stMetric"] {
+        border-left: 2px solid rgba(240, 0, 117, 0.65);
+        padding: 0.25rem 0.6rem;
+        background: rgba(18, 11, 18, 0.7);
+    }
+    [data-testid="stChatInput"] textarea {
+        background: rgba(12, 8, 13, 0.96);
+        color: #f5edf2;
+        border-color: rgba(255, 0, 117, 0.42);
+        font-family: 'Rajdhani', 'Bahnschrift', 'Arial Narrow', sans-serif;
+    }
+    @media (max-width: 640px) {
+        .brand-lockup { padding-top: 1.4rem; }
+        .brand-lockup::before { height: 10rem; }
+        .brand-lockup::after { height: 7.5rem; }
+        .brand-mark { font-size: 3.6rem; }
+        .brand-kicker { font-size: 0.72rem; }
+        .brand-subtitle { font-size: 1rem; }
+    }
+    @media (max-width: 800px) {
+        .brand-mark { font-size: 3.2rem; }
+        .brand-subtitle { font-size: 0.95rem; }
+        .brand-lockup::before { width: 90%; }
+        .brand-lockup::after { width: 62%; }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -40,39 +177,13 @@ def carregar_motor_rag():
 with st.spinner("A carregar base vetorial e motor RAG..."):
     modelo_embeddings, colecao = carregar_motor_rag()
 
-with st.sidebar:
-    st.markdown("<h2 style='color: #ff0055; margin-bottom: 0;'>POS TECH</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #888; font-size: 0.85rem;'>FIAP - IA & Machine Learning</p>", unsafe_allow_html=True)
-    st.markdown("---")
-
-    resumo_base = obter_resumo_base()
-    st.markdown("### 📊 Resumo da Base")
-    st.metric("Avaliações", resumo_base["total"])
-    st.metric("Elogios", resumo_base["positivas"])
-    st.metric("Reclamações", resumo_base["negativas"])
-    st.caption(f"Categoria mais frequente: {resumo_base['categoria_top']} ({resumo_base['categoria_top_total']} registros)")
-
-    st.markdown("---")
-    st.markdown("### 📌 KPIs por Categoria")
-    kpis = obter_kpis_por_categoria()
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Crítica", kpis["critica"]["nome"], f"{kpis['critica']['valor']} reclamações")
-    with col2:
-        st.metric("Melhor", kpis["melhor"]["nome"], f"{kpis['melhor']['valor']} elogios")
-    with col3:
-        st.metric("Mais vista", kpis["mais_vista"]["nome"], f"{kpis['mais_vista']['valor']} registros")
-
-    st.markdown("---")
-    if st.button("Limpar Conversa"):
-        st.session_state.mensagens = []
-        st.session_state.pergunta_pendente = None
-        st.session_state.cat_selecionada = None
-        st.rerun()
-
-st.markdown("<h1 class='neon-title'>POS TECH: TECH CHALLENGE - FASE 4</h1>", unsafe_allow_html=True)
-st.markdown("### Voice of Customer Intelligence (Olist)")
-st.markdown("---")
+st.markdown("""
+    <div class="brand-lockup">
+        <div class="brand-mark">FIAP</div>
+        <p class="brand-kicker">POS TECH · FASE 4</p>
+        <p class="brand-subtitle">Voice of Customer Intelligence · Olist</p>
+    </div>
+""", unsafe_allow_html=True)
 
 if "mensagens" not in st.session_state:
     st.session_state.mensagens = []
@@ -85,7 +196,7 @@ if "cat_selecionada" not in st.session_state:
 def obter_ranking_global_absoluto():
     resultados_globais = colecao.get(include=["metadatas"])
     metadatas_todas = resultados_globais["metadatas"]
-    
+
     negativas, positivas, todas = [], [], []
     for meta in metadatas_todas:
         try:
@@ -93,13 +204,13 @@ def obter_ranking_global_absoluto():
         except (ValueError, TypeError):
             score = 3
         cat = meta.get("product_category_name", "desconhecido")
-        
+
         todas.append(cat)
         if score <= 2:
             negativas.append(cat)
         elif score >= 4:
             positivas.append(cat)
-            
+
     return Counter(negativas), Counter(positivas), Counter(todas)
 
 ranking_negativo_global, ranking_positivo_global, ranking_geral_global = obter_ranking_global_absoluto()
@@ -163,6 +274,50 @@ def obter_kpis_por_categoria():
 def limpar_texto(txt):
     txt = ''.join(c for c in unicodedata.normalize('NFD', txt) if unicodedata.category(c) != 'Mn')
     return txt.replace(" e ", " ").replace(",", " ").lower()
+
+with st.sidebar:
+    st.markdown("<h2 style='color: #ff0055; margin-bottom: 0;'>POS TECH</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #888; font-size: 0.85rem;'>FIAP - IA & Machine Learning</p>", unsafe_allow_html=True)
+    st.markdown("---")
+
+    resumo_base = obter_resumo_base()
+    st.markdown("### Resumo da Base")
+    st.metric("Avaliações", resumo_base["total"])
+    st.metric("Elogios", resumo_base["positivas"])
+    st.metric("Reclamações", resumo_base["negativas"])
+    st.caption(f"Categoria mais frequente: {resumo_base['categoria_top']} ({resumo_base['categoria_top_total']} registros)")
+
+    st.markdown("---")
+    st.markdown("### KPIs por Categoria")
+    categorias_kpi = ["Todas as categorias", *sorted(ranking_geral_global)]
+    categoria_kpi = st.selectbox(
+        "Categoria",
+        categorias_kpi,
+        key="categoria_kpi",
+        format_func=lambda categoria: (
+            categoria if categoria == "Todas as categorias"
+            else categoria.replace("_", " ").title()
+        ),
+    )
+    if categoria_kpi == "Todas as categorias":
+        total_categoria = sum(ranking_geral_global.values())
+        positivas_categoria = sum(ranking_positivo_global.values())
+        negativas_categoria = sum(ranking_negativo_global.values())
+    else:
+        total_categoria = ranking_geral_global[categoria_kpi]
+        positivas_categoria = ranking_positivo_global[categoria_kpi]
+        negativas_categoria = ranking_negativo_global[categoria_kpi]
+
+    st.metric("Avaliações", total_categoria)
+    st.metric("Elogios (notas 4-5)", positivas_categoria)
+    st.metric("Reclamações (notas 1-2)", negativas_categoria)
+
+    st.markdown("---")
+    if st.button("Limpar Conversa"):
+        st.session_state.mensagens = []
+        st.session_state.pergunta_pendente = None
+        st.session_state.cat_selecionada = None
+        st.rerun()
 
 # --- RENDERIZAR HISTÓRICO ---
 for idx, mensagem in enumerate(st.session_state.mensagens):

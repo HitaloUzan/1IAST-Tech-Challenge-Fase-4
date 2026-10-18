@@ -1,17 +1,17 @@
-# ⚡ Tech Challenge - Fase 4 | FIAP Pós-Tech
+# Tech Challenge - Fase 4 | FIAP Pós-Tech
 ### Voice of Customer (VoC) Intelligence - Olist E-commerce
 
 Projeto desenvolvido para a Fase 4 da Pós-Graduação em Inteligência Artificial & Machine Learning da **FIAP**.
 
 ---
 
-## 📌 Visão Geral do Projeto
+## Visão Geral do Projeto
 
 Este projeto implementa um assistente inteligente baseado em **RAG (Retrieval-Augmented Generation)** focado na análise de *Voice of Customer* (VoC), utilizando o dataset público de avaliações do e-commerce brasileiro **Olist**.
 
 O objetivo principal é extrair insights qualitativos e quantitativos a partir dos comentários dos clientes, permitindo aos gestores entenderem rapidamente os principais gargalos operacionais — como logística, defeitos e atendimento — e os pontos fortes dos produtos, de forma auditável e transparente.
 
-## 🏗️ Arquitetura e Tecnologias Utilizadas
+## Arquitetura e Tecnologias Utilizadas
 
 A aplicação foi construída com foco em performance, processamento local de NLP e interatividade.
 
@@ -21,7 +21,7 @@ A aplicação foi construída com foco em performance, processamento local de NL
 - **Visualização de dados:** [Plotly Express](https://plotly.com/python/plotly-express/) — geração de gráficos interativos.
 - **Linguagem:** Python 3.10+.
 
-## ✨ Principais Funcionalidades
+## Principais Funcionalidades
 
 1. **Análise macro e quantitativa:** gera rankings e proporções percentuais das categorias com maior volume de reclamações ou elogios.
 2. **Análise qualitativa e semântica:** identifica causas recorrentes dos problemas — como atrasos na entrega e produtos avariados — sem exigir que o usuário informe uma categoria específica, com apoio de botões interativos dinâmicos.
@@ -29,7 +29,16 @@ A aplicação foi construída com foco em performance, processamento local de NL
 4. **Auditoria e transparência:** apresenta as respostas com uma área de **Evidências Reais**, permitindo consultar a nota, a data e o texto original da avaliação que fundamentou a resposta, com paginação.
 5. **Interatividade inteligente:** roteia dinamicamente as intenções e adapta a resposta conforme a pergunta, como resumo geral, comparação ou foco em um sentimento específico.
 
-## 📂 Estrutura do Repositório
+## Resumo da Base e KPIs por Categoria
+
+O painel lateral apresenta uma visão geral das avaliações armazenadas na base:
+
+- **Resumo da Base:** total de avaliações, quantidade de elogios (notas 4 e 5), reclamações (notas 1 e 2) e a categoria com maior volume de registros.
+- **KPIs por Categoria:** permite selecionar uma categoria ou visualizar todas. Os indicadores mostram o total de avaliações, elogios e reclamações para a seleção atual.
+
+Avaliações com nota 3 entram no total de avaliações, mas não são classificadas como elogios ou reclamações.
+
+## Estrutura do Repositório
 
 ```text
 1IAST-Tech-Challenge-Fase-4/
@@ -48,7 +57,7 @@ A aplicação foi construída com foco em performance, processamento local de NL
 └── README.md                 # Documentação
 ```
 
-## 🚀 Como Executar o Projeto Localmente
+## Como Executar o Projeto Localmente
 
 ### 1. Clone o repositório
 
@@ -97,7 +106,7 @@ streamlit run app.py
 
 A aplicação deverá abrir no navegador padrão. Caso isso não aconteça, acesse [http://localhost:8501](http://localhost:8501).
 
-## 🧪 Roteiro de Testes Recomendado
+## Roteiro de Testes Recomendado
 
 Para explorar os recursos do orquestrador de RAG, experimente as perguntas abaixo na interface.
 
@@ -149,7 +158,7 @@ Para explorar os recursos do orquestrador de RAG, experimente as perguntas abaix
 
 **Objetivo:** identificar produtos que se destacam pelas avaliações positivas.
 
-## 📋 Requisitos e Observações
+## Requisitos e Observações
 
 - Python 3.10 ou superior.
 - Arquivo `requirements.txt` na raiz do projeto.
