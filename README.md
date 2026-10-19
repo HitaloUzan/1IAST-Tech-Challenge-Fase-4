@@ -7,36 +7,32 @@ Projeto desenvolvido para a Fase 4 da Pós-Graduação em Inteligência Artifici
 
 ## Visão Geral do Projeto
 
-Este projeto implementa um assistente inteligente baseado em **RAG (Retrieval-Augmented Generation)** focado na análise de *Voice of Customer* (VoC), utilizando o dataset público de avaliações do e-commerce brasileiro **Olist**.
+Este projeto implementa um assistente inteligente baseado em **RAG (Retrieval-Augmented Generation)** focado na análise de *Voice of Customer* (VoC) utilizando o dataset público de avaliações do e-commerce brasileiro **Olist**. 
 
-O objetivo principal é extrair insights qualitativos e quantitativos a partir dos comentários dos clientes, permitindo aos gestores entenderem rapidamente os principais gargalos operacionais — como logística, defeitos e atendimento — e os pontos fortes dos produtos, de forma auditável e transparente.
+O objetivo principal é extrair insights qualitativos e quantitativos a partir dos comentários dos clientes, permitindo aos gestores entenderem rapidamente os principais gargalos operacionais (logística, defeitos, atendimento) e os pontos fortes dos produtos, tudo de forma auditável e transparente.
 
 ## Arquitetura e Tecnologias Utilizadas
 
 A aplicação foi construída com foco em performance, processamento local de NLP e interatividade.
 
-- **Interface Web:** [Streamlit](https://streamlit.io/) — interface reativa e gestão de estado.
-- **Banco de dados vetorial:** [ChromaDB](https://www.trychroma.com/) — armazenamento local persistente dos embeddings das avaliações.
-- **Modelos de embedding:** [Sentence-Transformers](https://sbert.net/) (`paraphrase-multilingual-MiniLM-L12-v2`, via Hugging Face) — vetorização semântica multilíngue, com suporte a português brasileiro.
-- **Visualização de dados:** [Plotly Express](https://plotly.com/python/plotly-express/) — geração de gráficos interativos.
-- **Linguagem:** Python 3.10+.
+*   **Interface Web & Dashboard:** [Streamlit](https://streamlit.io/) com gestão de estado reativa e suporte a eventos nativos de seleção gráfica (`on_select`).
+*   **Vector Database:** [ChromaDB](https://www.trychroma.com/) (armazenamento persistente local dos embeddings das avaliações).
+*   **Modelos de Embedding:** [Sentence-Transformers](https://sbert.net/) (`paraphrase-multilingual-MiniLM-L12-v2` via HuggingFace) para vetorização semântica multilingue.
+*   **Visualização de Dados Interativa:** [Plotly Express](https://plotly.com/python/plotly-express/) & [Pandas](https://pandas.pydata.org/) (gráficos de barras horizontais clicáveis no dashboard e gráficos de pizza/distribuição na conversa).
+*   **Linguagem:** Python 3.10+
+
+### Arquitetura Limpa e Desacoplamento (Separation of Concerns)
+O projeto adota princípios rigorosos de Engenharia de Software:
+* **Backend de NLP (`src/prompt_config.py`):** Concentra a inteligência de linguagem natural, limpeza de texto via Regex/Unicode, *fuzzy matching* para resolução de singulares/plurais e apelidos de categorias, bem como o roteamento lógico de intenções.
+* **Frontend Agnóstico (`app.py`):** Atua como uma camada visual desacoplada, responsável pela renderização dos componentes de tela, captura de eventos gráficos e formatação do histórico do chat.
 
 ## Principais Funcionalidades
 
-1. **Análise macro e quantitativa:** gera rankings e proporções percentuais das categorias com maior volume de reclamações ou elogios.
-2. **Análise qualitativa e semântica:** identifica causas recorrentes dos problemas — como atrasos na entrega e produtos avariados — sem exigir que o usuário informe uma categoria específica, com apoio de botões interativos dinâmicos.
-3. **Análise comparativa:** compara o volume de avaliações positivas e negativas dentro de uma mesma categoria.
-4. **Auditoria e transparência:** apresenta as respostas com uma área de **Evidências Reais**, permitindo consultar a nota, a data e o texto original da avaliação que fundamentou a resposta, com paginação.
-5. **Interatividade inteligente:** roteia dinamicamente as intenções e adapta a resposta conforme a pergunta, como resumo geral, comparação ou foco em um sentimento específico.
-
-## Resumo da Base e KPIs por Categoria
-
-O painel lateral apresenta uma visão geral das avaliações armazenadas na base:
-
-- **Resumo da Base:** total de avaliações, quantidade de elogios (notas 4 e 5), reclamações (notas 1 e 2) e a categoria com maior volume de registros.
-- **KPIs por Categoria:** permite selecionar uma categoria ou visualizar todas. Os indicadores mostram o total de avaliações, elogios e reclamações para a seleção atual.
-
-Avaliações com nota 3 entram no total de avaliações, mas não são classificadas como elogios ou reclamações.
+1.  **Dashboard Inicial Interativo (Zero-State UX):** Ao abrir a aplicação, o utilizador depara-se com gráficos de barras do **Top 5 Reclamações** e **Top 5 Elogios**. Ao clicar diretamente em qualquer barra, o dashboard recolhe-se e inicia automaticamente uma análise profunda dessa categoria no chat, com opção de retorno rápido via botão *"⬅️ Voltar ao Dashboard"*.
+2.  **Análise Macro e Quantitativa:** Gera rankings consolidados e proporções percentuais com base em toda a base histórica.
+3.  **Análise Qualitativa e Semântica:** Identifica a causa raiz de problemas (ex: falhas logísticas, divergência de produto, suporte) de forma contextualizada.
+4.  **Motor NLP Flexível (Fuzzy Matching):** Mapeia termos no singular, plural, sinónimos e variações ortográficas para as categorias oficiais (ex: "festa" ➔ `artigos_de_festas`, "relogio" ➔ `relogios_presentes`).
+5.  **Auditoria e Transparência:** Todas as respostas trazem um painel expansível de "Evidências Reais Auditáveis" com score original, data do pedido e o texto literal da avaliação, incluindo paginação sob demanda.
 
 ## Estrutura do Repositório
 
