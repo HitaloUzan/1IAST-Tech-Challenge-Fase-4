@@ -121,3 +121,9 @@ def test_mmr_prefers_diverse_results():
   query = np.array([1.0, 0.0])
   vectors = np.array([[1.0, 0.0], [0.99, 0.01], [0.8, 0.6]])
   assert mmr(query, vectors, k=2, lambda_=0.3) == [0, 2]
+
+
+def test_filter_defined_question_lifts_the_distance_threshold():
+  answer = make_pipeline([0.6, 0.7, 0.8]).answer("reclamações sobre beleza")
+  assert answer.status == rp.RETRIEVAL_ONLY
+  assert answer.retrieval.max_distance == rp.FILTER_DEFINED_MAX_DISTANCE

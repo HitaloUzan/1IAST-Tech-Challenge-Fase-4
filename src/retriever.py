@@ -21,7 +21,7 @@ import numpy as np
 
 from src.query_parser import to_chroma_where
 
-DEFAULT_MAX_DISTANCE = 0.42
+DEFAULT_MAX_DISTANCE = 0.40
 DEFAULT_CANDIDATES = 40
 DEFAULT_TOP_K = 10
 DEFAULT_MMR_LAMBDA = 0.7

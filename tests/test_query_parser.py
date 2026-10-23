@@ -81,3 +81,14 @@ def test_domain_gate_flags_questions_outside_the_shopping_experience():
   assert parse_question("Me passa uma receita de bolo", CATEGORIES).in_domain is False
   assert parse_question("O que dizem sobre a embalagem?", CATEGORIES).in_domain is True
   assert parse_question("E sobre relógios?", CATEGORIES).in_domain is True
+
+
+def test_score_phrases_are_filters_not_search_text():
+  parsed = parse_question("Quais os principais problemas nas avaliações com nota baixa?", CATEGORIES)
+  assert parsed.filters == {"score_max": 2}
+  assert "nota" not in parsed.semantic_query
+
+
+def test_sentiment_only_question_is_not_topical():
+  assert parse_question("Quais as reclamações sobre cama, mesa e banho em 2018?", CATEGORIES).topical is False
+  assert parse_question("O que os clientes relatam sobre a entrega?", CATEGORIES).topical is True

@@ -11,6 +11,10 @@ Output:
 - ``filters``: metadata constraints pushed into the ChromaDB query.
 - ``semantic_query``: the question without interrogative framing. It is
   embedded together with the original question (see src/retriever.py).
+- ``topical``: whether the semantic query says anything beyond sentiment
+  ("reclamações sobre cama mesa banho" -> only "reclamacoes" is left). When it
+  does not, the metadata filters alone define the relevant slice, so the
+  distance threshold is not applied (see src/rag_pipeline.py).
 - ``in_domain``: whether the question mentions anything about the shopping
   experience. Questions with no such term are refused before retrieval, because
   a small embedding model always finds some "closest" review, even for "qual a
@@ -45,6 +49,7 @@ DOMAIN_PATTERN = re.compile(
     r"|cancel|atras|recomend|marketplace|ecommerce|e commerce|demor|quebr|danific|avari"
     r"|gost|ruim|pessim|otim|excelent)\w*"
 )
+SCORE_PHRASE_PATTERN = re.compile(r"\bnotas? (baixa|baixas|alta|altas|ruim|ruins|boa|boas)\b")
 YEAR_PATTERN = re.compile(r"\b(2016|2017|2018)\b")
 RANKING_SUBJECT = re.compile(r"\b(categoria|categorias|produto|produtos|setor|setores)\b")
 RANKING_WORDS = re.compile(
@@ -67,6 +72,8 @@ FRAMING_WORDS = {
     "seu", "lhes", "eles", "elas", "aspectos", "experiencia", "experiencias",
     "sustentam", "conclusao", "determinadas", "determinada", "relacionados",
     "relacionadas", "relacionado", "relacionada", "tem", "teve", "tiveram",
+    "maior", "maiores", "temas", "tema", "falam", "dizem", "acham", "foi", "sobre",
+    "quais", "quanto", "muito", "muitos", "gente", "pessoas",
 }
 
 CATEGORY_ALIASES = {
@@ -111,6 +118,7 @@ class ParsedQuery:
   year: int | None = None
   late_delivery: bool = False
   in_domain: bool = True
+  topical: bool = True
   wants_percentage: bool = False
   wants_chart: bool = False
   filters: dict = field(default_factory=dict)
@@ -157,8 +165,16 @@ def build_semantic_query(normalized: str, category: str | None) -> str:
   if category:
     removable.update(category.split("_"))
     removable.update(k for k, v in CATEGORY_ALIASES.items() if v == category)
-  tokens = [t for t in normalized.split() if t not in removable and not YEAR_PATTERN.fullmatch(t)]
-  return " ".join(tokens) if len(tokens) >= 1 else normalized
+  text = SCORE_PHRASE_PATTERN.sub(" ", normalized)
+  tokens = [t for t in text.split() if t not in removable and not YEAR_PATTERN.fullmatch(t)]
+  return " ".join(tokens) if tokens else normalized
+
+
+def is_topical(semantic_query: str) -> bool:
+  return any(
+      not (NEGATIVE_PATTERN.match(token) or POSITIVE_PATTERN.match(token))
+      for token in semantic_query.split()
+  )
 
 
 def parse_question(question: str, categories, forced_category: str | None = None) -> ParsedQuery:
@@ -180,16 +196,18 @@ def parse_question(question: str, categories, forced_category: str | None = None
   else:
     route = "rag"
 
+  semantic_query = build_semantic_query(normalized, category)
   parsed = ParsedQuery(
       original=question,
       normalized=normalized,
-      semantic_query=build_semantic_query(normalized, category),
+      semantic_query=semantic_query,
       sentiment=sentiment,
       route=route,
       category=category,
       year=int(year_match.group(1)) if year_match else None,
       late_delivery=bool(LATE_DELIVERY_PATTERN.search(normalized)),
       in_domain=bool(category or DOMAIN_PATTERN.search(normalized)),
+      topical=is_topical(semantic_query),
       wants_percentage=wants_percentage,
       wants_chart=wants_chart,
   )

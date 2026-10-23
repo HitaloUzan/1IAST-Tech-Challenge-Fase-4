@@ -21,6 +21,10 @@ from src.query_parser import ParsedQuery, parse_question
 from src.retriever import RetrievalResult, Retriever
 
 MIN_EVIDENCES = 3
+# Questions with no topic beyond sentiment ("reclamações sobre beleza em 2018")
+# get their relevance from the metadata filters, so the distance threshold is
+# lifted (cosine distance never exceeds 2).
+FILTER_DEFINED_MAX_DISTANCE = 2.0
 CITATION_PATTERN = re.compile(r"\[R(\d+)\]")
 
 ANSWERED = "answered"
@@ -121,9 +125,10 @@ class VoCPipeline:
     if not parsed.in_domain:
       return RAGAnswer(question, parsed, OUT_OF_SCOPE, OUT_OF_SCOPE_MESSAGE)
 
-    retrieval = self.retriever.retrieve(
-        question, parsed.semantic_query, parsed.filters, **self.retrieval_params
-    )
+    params = dict(self.retrieval_params)
+    if not parsed.topical and parsed.filters:
+      params["max_distance"] = FILTER_DEFINED_MAX_DISTANCE
+    retrieval = self.retriever.retrieve(question, parsed.semantic_query, parsed.filters, **params)
     if len(retrieval.evidences) < MIN_EVIDENCES:
       return RAGAnswer(question, parsed, NO_EVIDENCE, explain_no_evidence(parsed, retrieval), retrieval)
 
