@@ -101,7 +101,13 @@ class VoCPipeline:
     generator = llm_config.LLMGenerator() if llm_config.is_configured() else None
     return cls(embedding_model, collection, categories, generator, **retrieval_params)
 
-  def answer(self, question: str, forced_category: str | None = None, extra_filters: dict | None = None) -> RAGAnswer:
+  def answer(
+      self,
+      question: str,
+      forced_category: str | None = None,
+      extra_filters: dict | None = None,
+      use_llm: bool = True,
+  ) -> RAGAnswer:
     parsed = parse_question(question, self.categories, forced_category)
     if extra_filters:
       parsed.filters.update(extra_filters)
@@ -122,7 +128,7 @@ class VoCPipeline:
       return RAGAnswer(question, parsed, NO_EVIDENCE, explain_no_evidence(parsed, retrieval), retrieval)
 
     user_prompt = build_user_prompt(question, parsed.describe_filters(), retrieval.evidences)
-    if self.generator is None:
+    if self.generator is None or not use_llm:
       return RAGAnswer(question, parsed, RETRIEVAL_ONLY, retrieval=retrieval, user_prompt=user_prompt)
 
     try:
