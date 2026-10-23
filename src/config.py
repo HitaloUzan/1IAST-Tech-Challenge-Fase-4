@@ -13,7 +13,7 @@ EMBEDDING_IDS_FILE = os.path.join(INDEX_DIR, "embedding_ids.txt")
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 COLLECTION_NAME = "olist_reviews_voc"
 
-SHORT_COMMENT_MAX_CHARS = 3
+MIN_EVIDENCE_WORDS = 2
 
 NEGATIVE_MAX_SCORE = 2
 POSITIVE_MIN_SCORE = 4

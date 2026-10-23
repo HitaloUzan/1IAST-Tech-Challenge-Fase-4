@@ -74,3 +74,10 @@ def test_where_clause_always_excludes_short_comments():
   assert {"review_score": {"$lte": 2}} in where["$and"]
   assert {"product_category_name": "beleza_saude"} in where["$and"]
   assert {"delivery_status": {"$in": ["atrasado", "nao_entregue"]}} in where["$and"]
+
+
+def test_domain_gate_flags_questions_outside_the_shopping_experience():
+  assert parse_question("Qual a capital da França?", CATEGORIES).in_domain is False
+  assert parse_question("Me passa uma receita de bolo", CATEGORIES).in_domain is False
+  assert parse_question("O que dizem sobre a embalagem?", CATEGORIES).in_domain is True
+  assert parse_question("E sobre relógios?", CATEGORIES).in_domain is True

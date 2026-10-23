@@ -10,8 +10,9 @@ Decisions (justified in the README, section "Preparação da base"):
   expensive item (the main purchase of the order).
 - Duplicated ``review_id`` (the same review attached to more than one order in
   the source) keeps the first occurrence.
-- Comments with up to 3 characters ("ok", "bom") are kept for counting but
-  flagged as ``is_short`` so they never become evidence for the LLM.
+- One-word comments ("Ótima", "Péssima", "ok") are kept for counting but
+  flagged as ``is_short`` so they never become evidence for the LLM: they match
+  almost any short query and carry no explanation of what happened.
 """
 
 import os
@@ -19,7 +20,7 @@ import re
 
 import pandas as pd
 
-from src.config import PROCESSED_DIR, RAW_DIR, REVIEWS_CSV, SHORT_COMMENT_MAX_CHARS
+from src.config import MIN_EVIDENCE_WORDS, PROCESSED_DIR, RAW_DIR, REVIEWS_CSV
 
 WHITESPACE = re.compile(r"\s+")
 
@@ -108,7 +109,7 @@ def build_knowledge_base() -> pd.DataFrame:
 
   df["purchase_year"] = df["order_purchase_timestamp"].dt.year.astype("Int64")
   df["purchase_month"] = df["order_purchase_timestamp"].dt.strftime("%Y-%m")
-  df["is_short"] = df["review_text"].str.len().le(SHORT_COMMENT_MAX_CHARS)
+  df["is_short"] = df["review_text"].str.split().str.len().lt(MIN_EVIDENCE_WORDS)
 
   columns = [
       "review_id",
@@ -128,13 +129,13 @@ def build_knowledge_base() -> pd.DataFrame:
       "delivery_status",
       "delivery_delay_days",
   ]
-  df = df[columns].sort_values("order_purchase_timestamp").reset_index(drop=True)
+  df = df[columns].sort_values(["order_purchase_timestamp", "review_id"]).reset_index(drop=True)
 
   os.makedirs(PROCESSED_DIR, exist_ok=True)
   df.to_csv(REVIEWS_CSV, index=False, encoding="utf-8")
 
   print(f"Documentos na base de conhecimento: {len(df)}")
-  print(f"Comentários curtos (não viram evidência): {int(df['is_short'].sum())}")
+  print(f"Comentários de uma palavra (não viram evidência): {int(df['is_short'].sum())}")
   print(f"Pedidos com mais de uma categoria: {int(df['has_multiple_categories'].sum())}")
   print(f"Status de entrega: {df['delivery_status'].value_counts().to_dict()}")
   print(f"Arquivo salvo em: {REVIEWS_CSV}")

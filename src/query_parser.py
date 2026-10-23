@@ -9,8 +9,12 @@ Output:
   reviews), ``ranking`` or ``comparison`` (quantitative questions, answered by
   exact counts over the whole base, never by the LLM).
 - ``filters``: metadata constraints pushed into the ChromaDB query.
-- ``semantic_query``: the question without interrogative framing, which is what
-  gets embedded.
+- ``semantic_query``: the question without interrogative framing. It is
+  embedded together with the original question (see src/retriever.py).
+- ``in_domain``: whether the question mentions anything about the shopping
+  experience. Questions with no such term are refused before retrieval, because
+  a small embedding model always finds some "closest" review, even for "qual a
+  capital da França?".
 """
 
 import re
@@ -32,6 +36,14 @@ LATE_DELIVERY_PATTERN = re.compile(
     r"\b(entregas? (atrasad|insatisfat|ruim|ruins|problematic)\w*"
     r"|pedidos? atrasad\w*|atrasos? (na|de) entrega|entregues? com atraso|fora do prazo"
     r"|nao entregues?|nao recebid\w*)"
+)
+DOMAIN_PATTERN = re.compile(
+    r"\b(produt|entreg|compr|pedid|client|consumidor|comprador|avalia|coment|loja|vend"
+    r"|atend|prazo|qualidad|preco|precos|frete|embal|devol|troc|reembols|estorn|garant"
+    r"|defeit|problem|reclam|elogi|insatisf|satisf|nota|notas|experienc|servic|suporte"
+    r"|correio|transport|receb|cheg|anunci|olist|categori|item|itens|mercadori|pagament"
+    r"|cancel|atras|recomend|marketplace|ecommerce|e commerce|demor|quebr|danific|avari"
+    r"|gost|ruim|pessim|otim|excelent)\w*"
 )
 YEAR_PATTERN = re.compile(r"\b(2016|2017|2018)\b")
 RANKING_SUBJECT = re.compile(r"\b(categoria|categorias|produto|produtos|setor|setores)\b")
@@ -98,6 +110,7 @@ class ParsedQuery:
   category: str | None = None
   year: int | None = None
   late_delivery: bool = False
+  in_domain: bool = True
   wants_percentage: bool = False
   wants_chart: bool = False
   filters: dict = field(default_factory=dict)
@@ -176,6 +189,7 @@ def parse_question(question: str, categories, forced_category: str | None = None
       category=category,
       year=int(year_match.group(1)) if year_match else None,
       late_delivery=bool(LATE_DELIVERY_PATTERN.search(normalized)),
+      in_domain=bool(category or DOMAIN_PATTERN.search(normalized)),
       wants_percentage=wants_percentage,
       wants_chart=wants_chart,
   )

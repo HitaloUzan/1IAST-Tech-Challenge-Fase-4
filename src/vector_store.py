@@ -6,6 +6,8 @@ scale. Everything that is not the review text goes to metadata so it can be
 used in ``where`` filters at query time.
 """
 
+import hashlib
+
 import chromadb
 import numpy as np
 import pandas as pd
@@ -19,6 +21,15 @@ from src.config import (
 )
 
 BATCH_SIZE = 2000
+
+
+def knowledge_base_signature() -> str:
+  digest = hashlib.md5()
+  for path in (REVIEWS_CSV, EMBEDDINGS_FILE):
+    with open(path, "rb") as f:
+      for chunk in iter(lambda: f.read(1 << 20), b""):
+        digest.update(chunk)
+  return digest.hexdigest()
 
 
 def build_metadata(row) -> dict:
@@ -39,7 +50,7 @@ def build_metadata(row) -> dict:
   return metadata
 
 
-def build_collection(client) -> chromadb.Collection:
+def build_collection(client, signature: str) -> chromadb.Collection:
   df = pd.read_csv(REVIEWS_CSV)
   vectors = np.load(EMBEDDINGS_FILE).astype(np.float32)
   with open(EMBEDDING_IDS_FILE, encoding="utf-8") as f:
@@ -54,7 +65,7 @@ def build_collection(client) -> chromadb.Collection:
   except Exception:
     pass
   collection = client.create_collection(
-      name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"}
+      name=COLLECTION_NAME, metadata={"hnsw:space": "cosine", "kb_signature": signature}
   )
 
   documents = df["review_text"].tolist()
@@ -72,15 +83,15 @@ def build_collection(client) -> chromadb.Collection:
 
 def get_collection(path: str = CHROMA_DIR) -> chromadb.Collection:
   client = chromadb.PersistentClient(path=path)
-  expected = len(np.load(EMBEDDINGS_FILE, mmap_mode="r"))
+  signature = knowledge_base_signature()
   try:
     collection = client.get_collection(COLLECTION_NAME)
-    if collection.count() == expected:
+    if (collection.metadata or {}).get("kb_signature") == signature:
       return collection
   except Exception:
     pass
   print("Construindo a coleção no ChromaDB a partir dos embeddings salvos...")
-  return build_collection(client)
+  return build_collection(client, signature)
 
 
 if __name__ == "__main__":
