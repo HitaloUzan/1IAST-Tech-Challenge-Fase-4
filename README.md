@@ -26,6 +26,19 @@ O projeto adota princípios rigorosos de Engenharia de Software:
 * **Backend de NLP (`src/prompt_config.py`):** Concentra a inteligência de linguagem natural, limpeza de texto via Regex/Unicode, *fuzzy matching* para resolução de singulares/plurais e apelidos de categorias, bem como o roteamento lógico de intenções.
 * **Frontend Agnóstico (`app.py`):** Atua como uma camada visual desacoplada, responsável pela renderização dos componentes de tela, captura de eventos gráficos e formatação do histórico do chat.
 
+### Decisão de Engenharia: Abordagem Nativa vs. Frameworks de Orquestração (LangChain)
+
+Embora o ecossistema LangChain seja amplamente utilizado para orquestração de LLMs e fluxos de RAG, para este projeto optou-se intencionalmente por uma **implementação nativa direta** (`ChromaDB` + `SentenceTransformers` + lógica customizada de NLP), fundamentada nos seguintes pontos:
+
+1. **Rigor Analítico e Auditoria Sem Alucinações:**
+   * O escopo do projeto exige precisão determinística na contagem de avaliações (notas 1-2 vs. 4-5) para gerar rankings e percentuais exatos. Delegar a agregação estatística a cadeias de LLM frequentemente introduz imprecisões e alucinações numéricas.
+2. **Transparência e Ausência de "Caixa-Preta":**
+   * A integração direta sem abstrações densas permite inspecionar cada etapa do pipeline: geração de embeddings, cálculo de similaridade por cosseno, filtragem de metadados e formatação de evidências auditáveis.
+3. **Eficiência e Baixa Latência:**
+   * A aplicação roda com consumo mínimo de recursos e sem a sobrecarga de dependências complexas de orquestradores externos, garantindo respostas instantâneas na interface.
+4. **Desacoplamento e Prontidão para Extensão:**
+   * A arquitetura foi estruturada em camadas independentes (`src/prompt_config.py` e `app.py`). Caso haja necessidade futura de integrar um LLM generativo externo (via LangChain ou SDKs dedicados), o pipeline vetorial e a interface visual já operam desacoplados e prontos para consumo.
+
 ## Principais Funcionalidades
 
 1.  **Dashboard Inicial Interativo (Zero-State UX):** Ao abrir a aplicação, o utilizador depara-se com gráficos de barras do **Top 5 Reclamações** e **Top 5 Elogios**. Ao clicar diretamente em qualquer barra, o dashboard recolhe-se e inicia automaticamente uma análise profunda dessa categoria no chat, com opção de retorno rápido via botão *"⬅️ Voltar ao Dashboard"*.
