@@ -59,8 +59,22 @@ flowchart LR
 | Modelo de linguagem | `src/llm.py` | Gemini, Groq ou Ollama atrás de uma interface (LangChain) |
 | Orquestração | `src/rag_pipeline.py` | Encadeia as etapas e decide quando recusar |
 | Números exatos | `src/analytics.py` | Rankings, percentuais e comparações sobre a base inteira |
-| Interface | `app.py` | Streamlit: painel, chat, evidências e rastro de cada resposta |
+| Interface | `app.py`, `ui/` | Streamlit: painel, chat, evidências e rastro de cada resposta; `ui/` guarda tema, componentes e gráficos |
 | Avaliação | `eval/run_eval.py` | 22 perguntas, ablação de estratégias e relatório |
+
+### Interface
+
+A tela inicial mostra os números que contextualizam as perguntas: 25,6% das avaliações com texto são reclamações, e 40,2% dessas reclamações vêm de pedidos atrasados ou não entregues (contra 3,1% dos elogios). Os gráficos alternam entre reclamações e elogios; clicar numa categoria abre a análise dela no chat.
+
+![Painel inicial](docs/img/painel.png)
+
+Cada resposta traz o modelo usado, quantas avaliações entraram no contexto, quantas foram citadas e os filtros aplicados. As citações `[R#]` apontam para a lista de evidências.
+
+![Resposta com citações](docs/img/resposta.png)
+
+O painel "Como a resposta foi construída" mostra cada etapa do pipeline: a pergunta interpretada, os filtros, a cláusula enviada ao ChromaDB, cada candidata com sua similaridade e o motivo de ter entrado ou não no contexto, e o texto exato enviado ao modelo.
+
+![Rastro da busca](docs/img/rastro.png)
 
 ## 3. Preparação da base de conhecimento
 
@@ -173,7 +187,7 @@ O relatório completo está em [`eval/RESULTADOS.md`](eval/RESULTADOS.md).
 
 **Sobre a métrica:** precisão@5 aqui é um proxy lexical. Uma avaliação conta como relevante se contém algum radical esperado para a pergunta ("entreg", "atras", "prazo"…). É barata e reproduzível, boa para comparar estratégias, mas não substitui ler as evidências, que é o que a seção 8 mostra.
 
-Testes unitários: `pytest` (26 testes, sem precisar do modelo nem de chave de API).
+Testes unitários: `pytest` (29 testes, sem precisar do modelo nem de chave de API).
 
 ## 8. Exemplos de perguntas e respostas
 
@@ -244,7 +258,7 @@ Filtros detectados: nota ≤ 2, categoria `cama_mesa_banho`, ano 2018.
 | ChromaDB | Banco vetorial | Persistente, sem servidor, com filtros de metadados na própria consulta |
 | LangChain (`langchain-core` + integrações) | Camada do LLM | Gemini, Groq e Ollama com a mesma interface, trocados por uma variável |
 | Gemini Flash-Lite (padrão) / Groq / Ollama | Geração | As três opções são gratuitas (camada free ou execução local): o projeto não tem custo de API. O Flash-Lite respondeu em cerca de 2 s com a mesma qualidade de citação do Gemini Flash, que levava mais de 1 minuto por resposta na camada gratuita |
-| Streamlit + Plotly | Interface | Chat, painel clicável e rastreabilidade sem front-end separado |
+| Streamlit + Plotly | Interface | Chat, painel clicável e rastreabilidade sem front-end separado; tema escuro nativo com IBM Plex Sans |
 | pytest | Testes | Pipeline testado com embedder, banco e LLM falsos |
 | Streamlit Community Cloud (ou Docker) | Publicação | Gratuito, publica direto do GitHub e guarda as chaves como secrets |
 
@@ -291,7 +305,7 @@ python -m src.vector_store    # -> data/chroma_db/ (cerca de 30 s)
 ### Testes e avaliação
 
 ```bash
-pytest                              # 26 testes unitários
+pytest                              # 29 testes unitários
 python -m eval.run_eval             # recuperação, recusas e ablação
 python -m eval.run_eval --with-llm  # também gera as respostas (requer chave)
 ```
@@ -327,6 +341,12 @@ As chaves ficam nos *secrets* do Streamlit, que viram variáveis de ambiente, e 
 
 ```text
 ├── app.py                    # Interface Streamlit
+├── ui/
+│   ├── theme.py              # Cores, tipografia e nomes de categoria
+│   ├── styles.py             # CSS dos componentes e responsividade
+│   ├── components.py         # Blocos HTML (indicadores, evidências, rastro)
+│   └── charts.py             # Gráficos Plotly com estilo único
+├── docs/img/                 # Capturas da interface
 ├── src/
 │   ├── config.py             # Caminhos e constantes
 │   ├── preprocessing.py      # Base de conhecimento

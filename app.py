@@ -1,87 +1,37 @@
-import json
 import os
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 from sentence_transformers import SentenceTransformer
 
-from src import llm as llm_config
 from src import rag_pipeline as rp
 from src.analytics import ReviewAnalytics
 from src.config import EMBEDDING_MODEL
 from src.vector_store import get_collection
+from ui import charts
+from ui import components as ui
+from ui.styles import CSS
+from ui.theme import category_name, model_name, month_label, number, percent
 
 MAX_LLM_CALLS_PER_SESSION = int(os.getenv("MAX_LLM_CALLS_PER_SESSION", "20"))
 EVIDENCE_PAGE_SIZE = 5
-EXAMPLE_QUESTIONS = [
-    "Quais são os principais problemas relatados pelos clientes em suas avaliações?",
-    "O que os clientes relatam sobre problemas relacionados à entrega?",
-    "Quais aspectos da experiência de compra são mais elogiados pelos clientes?",
-    "Quais padrões podem ser identificados nas avaliações de clientes insatisfeitos?",
-    "Quais avaliações sustentam a conclusão de que existem problemas recorrentes relacionados ao prazo de entrega?",
-    "Qual a capital da França?",
-]
+AUTO = "Automática"
+SUGGESTIONS = {
+    "Principais problemas": "Quais são os principais problemas relatados pelos clientes em suas avaliações?",
+    "Problemas de entrega": "O que os clientes relatam sobre problemas relacionados à entrega?",
+    "O que mais elogiam": "Quais aspectos da experiência de compra são mais elogiados pelos clientes?",
+    "Clientes insatisfeitos": "Quais padrões podem ser identificados nas avaliações de clientes insatisfeitos?",
+    "Evidências de atraso": "Quais avaliações sustentam a conclusão de que existem problemas recorrentes relacionados ao prazo de entrega?",
+    "Ranking por categoria": "Quais categorias têm mais reclamações?",
+    "Pergunta fora do escopo": "Qual a capital da França?",
+}
+SENTIMENT_LABELS = {"Reclamações": "negativa", "Elogios": "positiva"}
 
-st.set_page_config(
-    page_title="Tech Challenge - Fase 4 | FIAP Pós Tech",
-    layout="wide",
-    initial_sidebar_state="auto",
-)
-
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap');
-
-    .stApp {
-        background-color: #050406;
-        background-image:
-            radial-gradient(circle, rgba(238, 0, 111, 0.22) 1px, transparent 1.4px),
-            radial-gradient(circle, rgba(255, 255, 255, 0.13) 0.8px, transparent 1.3px),
-            radial-gradient(ellipse at 50% 0%, rgba(100, 0, 52, 0.2), transparent 55%);
-        background-size: 19px 19px, 31px 31px, auto;
-        background-position: 0 0, 8px 12px, center top;
-        color: #eee8ed;
-        font-family: 'Rajdhani', 'Bahnschrift', 'Arial Narrow', sans-serif;
-        min-height: 100vh;
-    }
-    html, body { background-color: #050406 !important; }
-    [data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stBottomBlockContainer"] { background: transparent !important; }
-    [data-testid="stBottomBlockContainer"] > div {
-        background-color: #050406 !important;
-        background-image: radial-gradient(circle, rgba(238, 0, 111, 0.22) 1px, transparent 1.4px), radial-gradient(circle, rgba(255, 255, 255, 0.13) 0.8px, transparent 1.3px);
-        background-size: 19px 19px, 31px 31px;
-        background-position: 0 0, 8px 12px;
-    }
-    [data-testid="stHeader"] { background: transparent; }
-    [data-testid="stSidebar"] { background: rgba(8, 6, 10, 0.96); border-right: 1px solid rgba(255, 0, 117, 0.35); }
-    [data-testid="stChatInput"] { background: rgba(12, 8, 13, 0.96) !important; border: 1px solid rgba(255, 0, 117, 0.42); border-radius: 3px; position: relative; z-index: 99999 !important; display: block !important; }
-    [data-testid="stChatInput"] textarea { background: transparent !important; box-shadow: none !important; color: #f5edf2; font-family: 'Rajdhani', 'Bahnschrift', 'Arial Narrow', sans-serif; }
-    h1, h2, h3 { color: #fff !important; font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif; letter-spacing: 0; }
-    .brand-lockup { position: relative; isolation: isolate; max-width: 48rem; margin: 0 auto 1.4rem; padding: 1.7rem 1rem 1.1rem; text-align: center; }
-    .brand-lockup::before, .brand-lockup::after { position: absolute; top: 0; left: 50%; z-index: -1; content: ''; transform: translateX(-50%); clip-path: polygon(20% 0, 80% 0, 100% 50%, 80% 100%, 20% 100%, 0 50%); border: 1px solid rgba(255, 0, 117, 0.34); pointer-events: none; }
-    .brand-lockup::before { width: min(76vw, 34rem); height: 12.5rem; }
-    .brand-lockup::after { top: 1.4rem; width: min(48vw, 20rem); height: 9.5rem; border-color: rgba(255, 0, 117, 0.22); }
-    .brand-mark { color: #f00075; font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif; font-size: 5rem; font-weight: 500; line-height: 1; text-shadow: 0 0 22px rgba(240, 0, 117, 0.35); }
-    .brand-kicker { margin: 0.7rem 0 0.2rem; color: #f5edf2; font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif; font-size: 0.85rem; }
-    .brand-subtitle { margin: 0; color: #c7bac3; font-size: 1.2rem; font-weight: 500; }
-    .stChatMessage { background: rgba(14, 10, 15, 0.92) !important; border: 1px solid rgba(255, 0, 117, 0.25); border-radius: 3px; color: #f1eaf0; }
-    .stButton > button { background: #ed006f !important; color: #fff !important; border: 1px solid #ff3b98 !important; border-radius: 2px; font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', sans-serif; font-size: 0.75rem; font-weight: 600; }
-    .stButton > button:hover { background: #ff1687 !important; border-color: #ff75b7 !important; }
-    .streamlit-expanderHeader { background: rgba(13, 9, 14, 0.94) !important; color: #ff4b9c !important; border: 1px solid rgba(255, 0, 117, 0.32); border-radius: 2px; }
-    [data-testid="stSidebar"] h3 { font-size: 0.95rem !important; }
-    [data-testid="stSidebar"] [data-testid="stMetricValue"] { font-size: 1rem !important; }
-    [data-testid="stSidebar"] [data-testid="stMetricLabel"], [data-testid="stSidebar"] [data-testid="stMetricDelta"] { font-size: 0.7rem !important; }
-    [data-testid="stSidebar"] [data-testid="stSelectbox"] label { font-size: 0.75rem !important; }
-    [data-testid="stSidebar"] [data-testid="stMetric"] { border-left: 2px solid rgba(240, 0, 117, 0.65); padding: 0.25rem 0.6rem; background: rgba(18, 11, 18, 0.7); }
-    .cite { color: #ff4b9c; font-weight: 700; }
-    .evidence-cited { border-left: 3px solid #ff4b9c; padding-left: 0.6rem; }
-    .evidence-other { border-left: 3px solid rgba(255, 255, 255, 0.15); padding-left: 0.6rem; }
-    </style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Voz do Cliente Olist", layout="wide", initial_sidebar_state="collapsed")
+st.markdown(CSS, unsafe_allow_html=True)
 
 
-@st.cache_resource(show_spinner="Carregando modelo de embeddings, base vetorial e LLM...")
+@st.cache_resource(show_spinner="Carregando o modelo de embeddings e a base vetorial...")
 def load_engine():
   analytics = ReviewAnalytics()
   pipeline = rp.VoCPipeline.with_configured_llm(
@@ -92,19 +42,10 @@ def load_engine():
 
 analytics, pipeline = load_engine()
 llm_enabled = pipeline.generator is not None
+categories = [c for c in analytics.categories if c != "desconhecido"]
 
-
-def pretty(category: str) -> str:
-  return category.replace("_", " ").title()
-
-
-def init_state():
-  defaults = {"messages": [], "pending": None, "llm_calls": 0}
-  for key, value in defaults.items():
-    st.session_state.setdefault(key, value)
-
-
-init_state()
+for key, value in {"messages": [], "pending": None, "llm_calls": 0}.items():
+  st.session_state.setdefault(key, value)
 
 
 def reset_conversation():
@@ -114,217 +55,163 @@ def reset_conversation():
     st.session_state.pop(key, None)
 
 
-st.markdown("""
-    <div class="brand-lockup">
-        <div class="brand-mark">FIAP</div>
-        <p class="brand-kicker">POS TECH · FASE 4</p>
-        <p class="brand-subtitle">Voice of Customer Intelligence · Olist</p>
-    </div>
-""", unsafe_allow_html=True)
+def queue_question(question: str, category: str | None = None):
+  st.session_state.pending = {"question": question, "category": category}
 
-# --- SIDEBAR: KPIs, filtros e status do modelo ---
+
+def on_suggestion():
+  label = st.session_state.get("suggestion")
+  if label:
+    queue_question(SUGGESTIONS[label])
+  st.session_state.suggestion = None
+
+
+# --- Barra lateral: filtros da busca ---
 with st.sidebar:
-  st.markdown("<h2 style='color: #ff0055; margin-bottom: 0;'>POS TECH</h2>", unsafe_allow_html=True)
-  st.markdown("<p style='color: #888; font-size: 0.85rem;'>FIAP - IA & Machine Learning</p>", unsafe_allow_html=True)
-  st.markdown("---")
-
-  st.markdown("### Modelo de linguagem")
+  st.markdown("### Filtros da busca")
+  st.caption("Somam-se aos filtros que o sistema detecta na própria pergunta.")
+  score_filter = st.segmented_control("Nota", [AUTO, "1–2", "3", "4–5"], default=AUTO, key="f_score")
+  category_filter = st.selectbox("Categoria", [AUTO, *categories], key="f_category",
+                                 format_func=lambda c: c if c == AUTO else category_name(c))
+  year_filter = st.segmented_control("Ano da compra", ["Todos", "2016", "2017", "2018"], default="Todos", key="f_year")
+  late_filter = st.toggle("Só pedidos atrasados ou não entregues", key="f_late")
+  st.divider()
   if llm_enabled:
     remaining = max(MAX_LLM_CALLS_PER_SESSION - st.session_state.llm_calls, 0)
-    st.success(f"Ativo: {pipeline.generator.label}")
-    st.caption(f"Perguntas com geração restantes nesta sessão: {remaining}")
+    st.caption(f"Modelo: {model_name(pipeline.generator.label)}. Respostas geradas restantes nesta sessão: {remaining}.")
   else:
-    st.warning(
-        "Modo só busca: nenhuma chave de LLM configurada. As evidências são recuperadas"
-        " normalmente, sem a resposta gerada. Veja o README para configurar."
-    )
-
-  st.markdown("### KPIs por categoria")
-  kpi_options = ["Todas as categorias", *[c for c in analytics.categories if c != "desconhecido"]]
-  kpi_category = st.selectbox(
-      "Selecione para inspecionar:", kpi_options, key="kpi_category",
-      format_func=lambda c: c if c == "Todas as categorias" else pretty(c),
-  )
-  counts = analytics.counts(None if kpi_category == "Todas as categorias" else kpi_category)
-  st.metric("Avaliações com texto", f"{counts.total:,}".replace(",", "."))
-  st.metric("Elogios (notas 4-5)", f"{counts.positive:,}".replace(",", "."))
-  st.metric("Reclamações (notas 1-2)", f"{counts.negative:,}".replace(",", "."))
-
-  st.markdown("### Filtros da busca")
-  st.caption("Somam-se aos filtros detectados automaticamente na pergunta.")
-  score_filter = st.selectbox(
-      "Nota", ["Detectar pela pergunta", "Notas 1-2", "Nota 3", "Notas 4-5"], key="score_filter"
-  )
-  category_filter = st.selectbox(
-      "Categoria", ["Detectar pela pergunta", *[c for c in analytics.categories if c != "desconhecido"]],
-      key="category_filter", format_func=lambda c: c if c.startswith("Detectar") else pretty(c),
-  )
-  year_filter = st.selectbox("Ano da compra", ["Todos", 2016, 2017, 2018], key="year_filter")
-  late_filter = st.checkbox("Só entregas atrasadas ou não entregues", key="late_filter")
-
-  st.markdown("---")
-  if st.button("🗑️ Limpar histórico", width="stretch"):
+    st.caption("Sem chave de LLM configurada: o app mostra as avaliações recuperadas, sem a resposta gerada.")
+  if st.button("Limpar conversa", width="stretch"):
     reset_conversation()
     st.rerun()
 
 
 def sidebar_filters() -> dict:
   filters = {}
-  if score_filter == "Notas 1-2":
+  if score_filter == "1–2":
     filters["score_max"] = 2
-  elif score_filter == "Nota 3":
+  elif score_filter == "3":
     filters.update(score_min=3, score_max=3)
-  elif score_filter == "Notas 4-5":
+  elif score_filter == "4–5":
     filters["score_min"] = 4
-  if not category_filter.startswith("Detectar"):
+  if category_filter != AUTO:
     filters["category"] = category_filter
-  if year_filter != "Todos":
+  if year_filter and year_filter != "Todos":
     filters["year"] = int(year_filter)
   if late_filter:
     filters["late_delivery"] = True
   return filters
 
 
-def ask(question: str, forced_category: str | None = None):
-  st.session_state.pending = {"question": question, "category": forced_category}
-  st.rerun()
-
-
-# --- RENDERIZAÇÃO DAS RESPOSTAS ---
-def highlight_citations(text: str) -> str:
-  return rp.CITATION_GROUP_PATTERN.sub(lambda m: f"<span class='cite'>{m.group(0)}</span>", text)
-
-
-def render_evidences(answer: rp.RAGAnswer, message_index: int):
+# --- Resposta do assistente ---
+def render_evidences(answer: rp.RAGAnswer, index: int):
   evidences = answer.evidences
   if not evidences:
     return
-  order = [i for i in range(1, len(evidences) + 1) if i in answer.cited]
-  order += [i for i in range(1, len(evidences) + 1) if i not in answer.cited]
-  limit_key = f"evidence_limit_{message_index}"
+  order = [n for n in range(1, len(evidences) + 1) if n in answer.cited]
+  order += [n for n in range(1, len(evidences) + 1) if n not in answer.cited]
+  limit_key = f"evidence_limit_{index}"
   limit = st.session_state.get(limit_key, EVIDENCE_PAGE_SIZE)
-  title = f"🔍 Evidências recuperadas ({len(evidences)}"
-  title += f", {len(answer.cited)} citadas na resposta)" if answer.status == rp.ANSWERED else ")"
-  with st.expander(title, expanded=answer.status != rp.ANSWERED):
-    for n in order[:limit]:
-      evidence = evidences[n - 1]
-      meta = evidence.metadata
-      cited = n in answer.cited
-      delivery = meta.get("delivery_status", "").replace("_", " ")
-      if meta.get("delivery_status") == "atrasado" and meta.get("delivery_delay_days") is not None:
-        delivery += f" ({meta['delivery_delay_days']} dia(s))"
-      badge = " · <span class='cite'>citada</span>" if cited else ""
-      if evidence.same_text_count > 1:
-        badge += f" · mesmo texto em {evidence.same_text_count} avaliações"
-      st.markdown(
-          f"<div class='{'evidence-cited' if cited else 'evidence-other'}'>"
-          f"<b>[R{n}]</b>{badge} · nota <b>{meta.get('review_score')}/5</b> · "
-          f"{pretty(meta.get('product_category_name', ''))} · compra {meta.get('purchase_month')} · "
-          f"entrega {delivery} · similaridade {evidence.similarity:.2f}<br/>"
-          f"<span style='color:#888;font-size:0.8rem'>review_id {evidence.review_id}</span></div>",
-          unsafe_allow_html=True,
-      )
-      st.text(evidence.text)
+  label = f"Avaliações usadas como evidência ({len(evidences)})"
+  with st.expander(label, expanded=answer.status == rp.RETRIEVAL_ONLY):
+    st.markdown("".join(ui.evidence(n, evidences[n - 1], n in answer.cited) for n in order[:limit]),
+                unsafe_allow_html=True)
     if limit < len(order):
-      if st.button("Carregar mais 5 evidências", key=f"more_{message_index}"):
+      if st.button(f"Mostrar mais {min(EVIDENCE_PAGE_SIZE, len(order) - limit)}", key=f"more_{index}"):
         st.session_state[limit_key] = limit + EVIDENCE_PAGE_SIZE
         st.rerun()
 
 
 def render_trace(answer: rp.RAGAnswer):
-  parsed = answer.parsed
-  with st.expander("⚙️ Como a pergunta foi processada"):
-    st.markdown(
-        f"- **Pergunta normalizada:** `{parsed.normalized}`\n"
-        f"- **Consulta semântica (sem palavras de enquadramento):** `{parsed.semantic_query}`\n"
-        f"- **Rota:** `{parsed.route}` · **Sentimento detectado:** `{parsed.sentiment}`\n"
-        f"- **Filtros:** {', '.join(parsed.describe_filters()) or 'nenhum'}\n"
-        f"- **Dentro do escopo:** {'sim' if parsed.in_domain else 'não'}"
-    )
+  with st.expander("Como a resposta foi construída"):
+    st.markdown(ui.steps(answer.parsed, answer.retrieval, answer.llm_label), unsafe_allow_html=True)
     retrieval = answer.retrieval
-    if retrieval:
-      st.markdown(
-          f"- **Cláusula `where` enviada ao ChromaDB:** `{json.dumps(retrieval.where, ensure_ascii=False)}`\n"
-          f"- **Candidatos:** {len(retrieval.candidates)} · **acima do limiar** "
-          f"(distância > {retrieval.max_distance}): {len(retrieval.rejected)} · "
-          f"**selecionados por MMR:** {len(retrieval.evidences)}"
+    if retrieval and retrieval.candidates:
+      selected = {e.review_id for e in retrieval.evidences}
+
+      def situation(c):
+        if c.review_id in selected:
+          return "No contexto"
+        if c.distance > retrieval.max_distance:
+          return "Pouco relevante"
+        if c.review_id in retrieval.duplicate_ids:
+          return "Texto repetido"
+        return "Redundante (MMR)"
+
+      table = pd.DataFrame([
+          {"Similaridade": 1 - c.distance, "Situação": situation(c), "Nota": c.metadata.get("review_score"),
+           "Avaliação": c.text}
+          for c in retrieval.candidates
+      ])
+      st.dataframe(
+          table, hide_index=True, width="stretch", height=280,
+          column_config={
+              "Similaridade": st.column_config.ProgressColumn(format="%.2f", min_value=0, max_value=1, width="small"),
+              "Situação": st.column_config.TextColumn(width="small"),
+              "Nota": st.column_config.NumberColumn(width="small"),
+          },
       )
-      if retrieval.candidates:
-        selected = {e.review_id for e in retrieval.evidences}
-        table = pd.DataFrame([
-            {
-                "distância": round(c.distance, 3),
-                "situação": "no contexto" if c.review_id in selected
-                else ("descartada: pouco relevante" if c.distance > retrieval.max_distance
-                      else "agrupada: texto idêntico" if c.review_id in retrieval.duplicate_ids
-                      else "descartada: redundante (MMR)"),
-                "nota": c.metadata.get("review_score"),
-                "texto": c.text[:90],
-            }
-            for c in retrieval.candidates
-        ])
-        st.dataframe(table, hide_index=True, width="stretch")
-    if answer.llm_label:
-      st.markdown(f"- **Modelo:** `{answer.llm_label}`")
     if answer.user_prompt:
-      st.markdown("**Contexto enviado ao modelo:**")
-      st.code(answer.user_prompt, language="text")
+      st.caption("Contexto enviado ao modelo")
+      st.code(answer.user_prompt, language=None, wrap_lines=True, height=260)
 
 
 def render_ranking(answer: rp.RAGAnswer):
   parsed = answer.parsed
-  sentiment = parsed.sentiment
-  label = {"negativa": "reclamações (notas 1-2)", "positiva": "elogios (notas 4-5)"}.get(sentiment, "avaliações")
+  sentiment = parsed.sentiment if parsed.sentiment in ("negativa", "positiva") else "negativa"
+  noun = "reclamações" if sentiment == "negativa" else "elogios"
   table = analytics.ranking(sentiment)
-  top = table.head(10).copy()
-  st.markdown(f"### Ranking de categorias por {label}")
-  st.caption(
-      "Contagem exata sobre as 42.370 avaliações com texto (não é gerada pelo modelo). "
-      "A taxa na categoria compara categorias de tamanhos diferentes de forma justa."
-  )
-  top["Categoria"] = top["category"].map(pretty)
-  top["% do total"] = (top["share_of_sentiment"] * 100).round(1)
-  top["Taxa na categoria (%)"] = (top["rate_in_category"] * 100).round(1)
-  st.dataframe(
-      top[["Categoria", "reviews", "% do total", "Taxa na categoria (%)", "category_total"]].rename(
-          columns={"reviews": label.split(" (")[0].capitalize(), "category_total": "Avaliações da categoria"}
-      ),
-      hide_index=True, width="stretch",
-  )
-  if parsed.wants_chart:
-    others = table.iloc[10:]["reviews"].sum()
-    pie = pd.concat([top[["Categoria", "reviews"]], pd.DataFrame([{"Categoria": "Outras", "reviews": others}])])
-    fig = px.pie(pie, names="Categoria", values="reviews", color_discrete_sequence=px.colors.sequential.RdPu_r)
+  st.markdown(ui.section(f"Categorias com mais {noun}",
+                         f"Contagem exata sobre {number(analytics.counts().total)} avaliações com texto, "
+                         "feita com pandas e não pelo modelo."), unsafe_allow_html=True)
+  if parsed.wants_chart and "pizza" in parsed.normalized:
+    st.plotly_chart(charts.share_donut(table, sentiment), config=charts.PLOTLY_CONFIG, width="stretch")
   else:
-    fig = px.bar(
-        top.sort_values("reviews"), x="reviews", y="Categoria", orientation="h",
-        color_discrete_sequence=["#ff0055" if sentiment == "negativa" else "#00e699"],
-    )
-    fig.update_layout(xaxis_title="", yaxis_title="")
-  fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e0e0e0",
-                    margin=dict(t=10, b=10, l=0, r=0))
-  st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(charts.category_bars(table, sentiment, top=10), config=charts.PLOTLY_CONFIG, width="stretch")
+  view = table.head(15).copy()
+  view["Categoria"] = view["category"].map(category_name)
+  st.dataframe(
+      view[["Categoria", "reviews", "share_of_sentiment", "rate_in_category", "category_total"]],
+      hide_index=True, width="stretch",
+      column_config={
+          "reviews": st.column_config.NumberColumn(noun.capitalize(), format="localized"),
+          "share_of_sentiment": st.column_config.NumberColumn(f"% do total de {noun}", format="percent"),
+          "rate_in_category": st.column_config.ProgressColumn(
+              "Taxa na categoria", format="percent", min_value=0, max_value=float(view["rate_in_category"].max())),
+          "category_total": st.column_config.NumberColumn("Avaliações da categoria", format="localized"),
+      },
+  )
+  st.caption("A taxa na categoria compara categorias de tamanhos diferentes: volume alto nem sempre é taxa alta.")
 
 
 def render_comparison(answer: rp.RAGAnswer):
   category = answer.parsed.category
-  counts = analytics.counts(category)
-  st.markdown(f"### Comparação na categoria {pretty(category)}")
-  cols = st.columns(3)
-  cols[0].metric("Reclamações (1-2)", counts.negative, f"{counts.negative / counts.total:.1%} da categoria", delta_color="off")
-  cols[1].metric("Neutras (3)", counts.neutral, f"{counts.neutral / counts.total:.1%} da categoria", delta_color="off")
-  cols[2].metric("Elogios (4-5)", counts.positive, f"{counts.positive / counts.total:.1%} da categoria", delta_color="off")
-  overall = analytics.counts()
-  verdict = "mais elogios do que reclamações" if counts.positive > counts.negative else "mais reclamações do que elogios"
-  st.markdown(
-      f"Nesta categoria há **{verdict}**. A taxa de reclamação é **{counts.negative / counts.total:.1%}**, "
-      f"contra **{overall.negative / overall.total:.1%}** na base inteira."
-  )
-  st.caption("Contagem exata sobre todas as avaliações com texto da categoria. Para entender os motivos, pergunte por exemplo: "
-             f"\"Quais são as reclamações sobre {pretty(category).lower()}?\"")
+  c, base = analytics.counts(category), analytics.counts()
+  st.markdown(ui.section(f"Reclamações e elogios em {category_name(category).lower()}",
+                         f"{number(c.total)} avaliações com texto na categoria. Contagem exata, sem o modelo."),
+              unsafe_allow_html=True)
+  st.markdown(ui.stat_cards([
+      ("Reclamações (1–2)", number(c.negative), f"{percent(c.negative / c.total)} da categoria", "neg"),
+      ("Neutras (3)", number(c.neutral), f"{percent(c.neutral / c.total)} da categoria", ""),
+      ("Elogios (4–5)", number(c.positive), f"{percent(c.positive / c.total)} da categoria", "pos"),
+  ]), unsafe_allow_html=True)
+  st.plotly_chart(charts.composition([
+      (category_name(category), c.negative, c.neutral, c.positive),
+      ("Base inteira", base.negative, base.neutral, base.positive),
+  ]), config=charts.PLOTLY_CONFIG, width="stretch")
+  more = "mais elogios do que reclamações" if c.positive > c.negative else "mais reclamações do que elogios"
+  st.markdown(f"A categoria tem **{more}**. A taxa de reclamação é **{percent(c.negative / c.total)}**, "
+              f"contra **{percent(base.negative / base.total)}** na base inteira.")
 
 
-def render_answer(answer: rp.RAGAnswer, message_index: int):
+REFUSAL_TITLES = {
+    rp.OUT_OF_SCOPE: "Fora do escopo",
+    rp.NO_EVIDENCE: "Sem evidência suficiente",
+    rp.LLM_REFUSED: "As avaliações não sustentam uma resposta",
+}
+
+
+def render_answer(answer: rp.RAGAnswer, index: int):
   status = answer.status
   if status == rp.ANALYTICS:
     if answer.parsed.route == "comparison":
@@ -333,97 +220,119 @@ def render_answer(answer: rp.RAGAnswer, message_index: int):
       render_ranking(answer)
     return
 
+  filters = answer.parsed.describe_filters()
   if status == rp.ANSWERED:
-    st.markdown(highlight_citations(answer.text), unsafe_allow_html=True)
+    st.markdown(ui.chips([model_name(answer.llm_label), f"{len(answer.evidences)} avaliações no contexto",
+                          f"{len(answer.cited)} citadas", *filters], accent_first=True), unsafe_allow_html=True)
+    st.markdown(ui.answer(answer.text), unsafe_allow_html=True)
     if answer.has_uncited_answer:
-      st.warning("O modelo respondeu sem citar nenhuma avaliação. Confira as evidências antes de usar esta resposta.")
-  elif status in (rp.NO_EVIDENCE, rp.OUT_OF_SCOPE, rp.LLM_REFUSED):
-    st.warning(answer.text)
+      st.markdown(ui.callout("Resposta sem citações",
+                             "O modelo não citou nenhuma avaliação. Confira as evidências antes de usar.", "error"),
+                  unsafe_allow_html=True)
+  elif status in REFUSAL_TITLES:
+    st.markdown(ui.callout(REFUSAL_TITLES[status], answer.text), unsafe_allow_html=True)
   elif status == rp.RETRIEVAL_ONLY:
-    reason = ("limite de perguntas com geração desta sessão atingido"
-              if llm_enabled else "nenhuma chave de LLM configurada")
-    st.info(f"Modo só busca ({reason}). Abaixo estão as avaliações mais relevantes que seriam enviadas ao modelo.")
+    reason = ("o limite de respostas geradas desta sessão foi atingido" if llm_enabled
+              else "não há chave de LLM configurada")
+    st.markdown(ui.callout("Modo só busca", f"Sem resposta gerada porque {reason}. Abaixo estão as avaliações "
+                                            "que seriam enviadas ao modelo.", "info"), unsafe_allow_html=True)
   elif status == rp.LLM_ERROR:
-    st.error(f"O modelo de linguagem falhou ({answer.error[:200]}). As evidências recuperadas seguem abaixo.")
+    st.markdown(ui.callout("O modelo de linguagem não respondeu", answer.error[:300], "error"),
+                unsafe_allow_html=True)
 
-  render_evidences(answer, message_index)
+  render_evidences(answer, index)
   render_trace(answer)
 
 
-def run_question(question: str, forced_category: str | None):
+def run_question(question: str, category: str | None) -> rp.RAGAnswer:
   use_llm = llm_enabled and st.session_state.llm_calls < MAX_LLM_CALLS_PER_SESSION
-  with st.spinner("Buscando avaliações e gerando a resposta..."):
-    answer = pipeline.answer(question, forced_category, sidebar_filters(), use_llm=use_llm)
+  with st.spinner("Buscando avaliações e escrevendo a resposta..."):
+    answer = pipeline.answer(question, category, sidebar_filters(), use_llm=use_llm)
   if answer.status in (rp.ANSWERED, rp.LLM_REFUSED, rp.LLM_ERROR):
     st.session_state.llm_calls += 1
   return answer
 
 
-# --- 1. TELA INICIAL (PAINEL COM BARRAS CLICÁVEIS) ---
-show_dashboard = not st.session_state.messages and not st.session_state.pending
+# --- Página inicial ---
+def render_home():
+  counts = analytics.counts()
+  st.markdown(ui.kpi_grid([
+      ("Avaliações com texto", number(counts.total), "Pedidos de set/2016 a ago/2018", ""),
+      ("Taxa de reclamação", percent(counts.negative / counts.total), "Avaliações com nota 1 ou 2", "neg"),
+      ("Taxa de elogio", percent(counts.positive / counts.total), "Avaliações com nota 4 ou 5", "pos"),
+      ("Reclamações ligadas à entrega", percent(analytics.late_delivery_share("negativa")),
+       f"Pedido atrasado ou não entregue. Entre os elogios: {percent(analytics.late_delivery_share('positiva'))}", ""),
+  ]), unsafe_allow_html=True)
 
-if show_dashboard:
-  st.markdown("<h3 style='text-align: center; color: #fff;'>🎛️ Painel de Descoberta Rápida</h3>", unsafe_allow_html=True)
-  st.markdown(
-      "<p style='text-align: center; color: #c7bac3;'><b>Clique numa barra</b> para investigar os motivos "
-      "daquela categoria, use uma pergunta de exemplo ou escreva a sua no campo abaixo.</p>",
-      unsafe_allow_html=True,
-  )
+  head, toggle = st.columns([3, 1], vertical_alignment="bottom")
+  head.markdown(ui.section("Onde os clientes reclamam e o que elogiam",
+                           "Números exatos sobre a base inteira. Clique numa categoria para investigar os motivos."),
+                unsafe_allow_html=True)
+  choice = toggle.segmented_control("Visão", list(SENTIMENT_LABELS), default="Reclamações", key="home_sentiment",
+                                    label_visibility="collapsed")
+  sentiment = SENTIMENT_LABELS.get(choice or "Reclamações")
+  noun = "reclamações" if sentiment == "negativa" else "elogios"
 
-  col_neg, col_pos = st.columns(2)
-  for column, sentiment, title, color, template in (
-      (col_neg, "negativa", "⚠️ Top 5 Reclamações", "#ff0055", "Quais são as principais reclamações sobre {}?"),
-      (col_pos, "positiva", "⭐ Top 5 Elogios", "#00e699", "O que os clientes mais elogiam em {}?"),
-  ):
-    with column:
-      st.markdown(f"<h4 style='color: {color}; text-align: center;'>{title}</h4>", unsafe_allow_html=True)
-      top5 = analytics.ranking(sentiment).head(5).copy()
-      top5["Categoria"] = top5["category"].map(pretty)
-      fig = px.bar(top5.sort_values("reviews"), x="reviews", y="Categoria", orientation="h",
-                   color_discrete_sequence=[color])
-      fig.update_traces(texttemplate="<b>%{x:,}</b>", textposition="outside", cliponaxis=False)
-      fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e0e0e0",
-                        separators=",.", margin=dict(t=10, b=10, l=0, r=40),
-                        xaxis=dict(visible=False, range=[0, top5["reviews"].max() * 1.2]), yaxis=dict(title=""))
-      event = st.plotly_chart(fig, width="stretch", on_select="rerun", selection_mode="points", key=f"bar_{sentiment}")
-      points = (event or {}).get("selection", {}).get("points", [])
-      if points:
-        clicked = top5[top5["Categoria"] == points[0]["y"]]["category"]
-        if not clicked.empty:
-          category = clicked.iloc[0]
-          ask(template.format(pretty(category).lower()), category)
+  left, right = st.columns([1.1, 1], gap="large")
+  with left:
+    ranking = analytics.ranking(sentiment)
+    st.markdown(ui.chart_title(f"Categorias com mais {noun}", "Volume · taxa dentro da categoria"),
+                unsafe_allow_html=True)
+    event = st.plotly_chart(charts.category_bars(ranking, sentiment), config=charts.PLOTLY_CONFIG, width="stretch",
+                            on_select="rerun", selection_mode="points", key=f"bar_{sentiment}")
+    points = (event or {}).get("selection", {}).get("points", [])
+    if points:
+      names = {category_name(c): c for c in ranking["category"].head(8)}
+      category = names.get(points[0].get("y"))
+      if category:
+        template = ("Quais são as principais reclamações sobre {}?" if sentiment == "negativa"
+                    else "O que os clientes mais elogiam em {}?")
+        queue_question(template.format(category_name(category).lower()), category)
+        st.rerun()
+  with right:
+    monthly = analytics.monthly_rates()
+    column = "negative_rate" if sentiment == "negativa" else "positive_rate"
+    peak = monthly.loc[monthly[column].idxmax() if sentiment == "negativa" else monthly[column].idxmin()]
+    peak_note = (f"Pico em {month_label(peak['purchase_month'])}: {percent(peak[column], 0)}" if sentiment == "negativa"
+                 else f"Menor taxa em {month_label(peak['purchase_month'])}: {percent(peak[column], 0)}")
+    st.markdown(ui.chart_title(f"Taxa de {noun} por mês da compra", f"Meses com 300+ avaliações · {peak_note}"),
+                unsafe_allow_html=True)
+    st.plotly_chart(charts.monthly_rate(monthly, sentiment), config=charts.PLOTLY_CONFIG, width="stretch")
 
-  st.markdown("<h4 style='text-align: center; color: #fff;'>Perguntas de exemplo</h4>", unsafe_allow_html=True)
-  example_cols = st.columns(2)
-  for i, question in enumerate(EXAMPLE_QUESTIONS):
-    if example_cols[i % 2].button(question, key=f"example_{i}", width="stretch"):
-      ask(question)
+  st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+  st.markdown(ui.section("Comece por uma pergunta",
+                         "Ou escreva a sua no campo abaixo. Filtros avançados ficam na barra lateral."),
+              unsafe_allow_html=True)
+  st.pills("Sugestões", list(SUGGESTIONS), key="suggestion", on_change=on_suggestion, label_visibility="collapsed")
 
+
+# --- Layout principal ---
+st.markdown(ui.header(pipeline.generator.label if llm_enabled else None, analytics.counts().total),
+            unsafe_allow_html=True)
+
+if not st.session_state.messages and not st.session_state.pending:
+  render_home()
 else:
-  if st.button("⬅️ Voltar ao painel"):
+  bar_left, bar_right = st.columns([4, 1], vertical_alignment="center")
+  bar_left.caption("Conversa")
+  if bar_right.button("Nova conversa", width="stretch"):
     reset_conversation()
     st.rerun()
-  st.markdown("---")
-
   for index, message in enumerate(st.session_state.messages):
-    with st.chat_message(message["role"]):
-      if message["role"] == "user":
-        st.markdown(message["content"])
-      else:
-        render_answer(message["answer"], index)
+    if message["role"] == "user":
+      st.markdown(ui.user_turn(message["content"]), unsafe_allow_html=True)
+    else:
+      render_answer(message["answer"], index)
 
-# --- 2. PROCESSAMENTO DA PERGUNTA PENDENTE ---
 if st.session_state.pending:
   pending = st.session_state.pending
   st.session_state.pending = None
   st.session_state.messages.append({"role": "user", "content": pending["question"]})
-  with st.chat_message("user"):
-    st.markdown(pending["question"])
+  st.markdown(ui.user_turn(pending["question"]), unsafe_allow_html=True)
   answer = run_question(pending["question"], pending["category"])
   st.session_state.messages.append({"role": "assistant", "answer": answer})
-  with st.chat_message("assistant"):
-    render_answer(answer, len(st.session_state.messages) - 1)
+  render_answer(answer, len(st.session_state.messages) - 1)
 
-# --- 3. CAIXA DE TEXTO DO CHAT ---
-if question := st.chat_input("Pergunte sobre as avaliações dos clientes da Olist..."):
-  ask(question)
+if question := st.chat_input("Pergunte sobre as avaliações. Ex.: o que os clientes falam sobre a embalagem?"):
+  queue_question(question)
+  st.rerun()
