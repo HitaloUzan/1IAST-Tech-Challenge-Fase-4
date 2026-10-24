@@ -25,7 +25,7 @@ MIN_EVIDENCES = 3
 # get their relevance from the metadata filters, so the distance threshold is
 # lifted (cosine distance never exceeds 2).
 FILTER_DEFINED_MAX_DISTANCE = 2.0
-CITATION_PATTERN = re.compile(r"\[R(\d+)\]")
+CITATION_GROUP_PATTERN = re.compile(r"\[(R\d+(?:\s*[,;]\s*R?\d+)*)\]")
 
 ANSWERED = "answered"
 RETRIEVAL_ONLY = "retrieval_only"
@@ -67,7 +67,10 @@ class RAGAnswer:
 
 
 def extract_citations(text: str, evidence_count: int) -> list[int]:
-  found = {int(n) for n in CITATION_PATTERN.findall(text)}
+  """Accepts [R1], [R1][R3] and grouped forms such as [R1, R3] or [R1, 3]."""
+  found = {
+      int(n) for group in CITATION_GROUP_PATTERN.findall(text) for n in re.findall(r"\d+", group)
+  }
   return sorted(n for n in found if 1 <= n <= evidence_count)
 
 

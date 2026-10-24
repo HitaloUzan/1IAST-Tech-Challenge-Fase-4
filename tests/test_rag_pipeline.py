@@ -127,3 +127,8 @@ def test_filter_defined_question_lifts_the_distance_threshold():
   answer = make_pipeline([0.6, 0.7, 0.8]).answer("reclamações sobre beleza")
   assert answer.status == rp.RETRIEVAL_ONLY
   assert answer.retrieval.max_distance == rp.FILTER_DEFINED_MAX_DISTANCE
+
+
+def test_grouped_citations_are_recognized():
+  text = "Atrasos [R1, R3, R6] e itens faltando [R2][R5]; ver também [R4; 7] e [R99]."
+  assert rp.extract_citations(text, 10) == [1, 2, 3, 4, 5, 6, 7]

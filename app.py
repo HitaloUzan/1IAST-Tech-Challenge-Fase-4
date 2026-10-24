@@ -1,6 +1,5 @@
 import json
 import os
-import re
 
 import pandas as pd
 import plotly.express as px
@@ -193,7 +192,7 @@ def ask(question: str, forced_category: str | None = None):
 
 # --- RENDERIZAÇÃO DAS RESPOSTAS ---
 def highlight_citations(text: str) -> str:
-  return re.sub(r"\[R(\d+)\]", r"<span class='cite'>[R\1]</span>", text)
+  return rp.CITATION_GROUP_PATTERN.sub(lambda m: f"<span class='cite'>{m.group(0)}</span>", text)
 
 
 def render_evidences(answer: rp.RAGAnswer, message_index: int):

@@ -18,8 +18,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DEFAULT_MODELS = {
-    "gemini": "gemini-2.5-flash",
-    "groq": "llama-3.3-70b-versatile",
+    "gemini": "gemini-flash-lite-latest",
+    "groq": "openai/gpt-oss-120b",
     "ollama": "llama3.1:8b",
 }
 REQUIRED_KEYS = {"gemini": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY", "ollama": None}
