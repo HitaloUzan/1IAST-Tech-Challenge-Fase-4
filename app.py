@@ -26,7 +26,7 @@ EXAMPLE_QUESTIONS = [
 st.set_page_config(
     page_title="Tech Challenge - Fase 4 | FIAP Pós Tech",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 st.markdown("""
@@ -378,9 +378,10 @@ if show_dashboard:
       top5["Categoria"] = top5["category"].map(pretty)
       fig = px.bar(top5.sort_values("reviews"), x="reviews", y="Categoria", orientation="h",
                    color_discrete_sequence=[color])
-      fig.update_traces(texttemplate="<b>%{x}</b>", textposition="outside")
+      fig.update_traces(texttemplate="<b>%{x:,}</b>", textposition="outside", cliponaxis=False)
       fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#e0e0e0",
-                        margin=dict(t=10, b=10, l=0, r=0), xaxis=dict(visible=False), yaxis=dict(title=""))
+                        separators=",.", margin=dict(t=10, b=10, l=0, r=40),
+                        xaxis=dict(visible=False, range=[0, top5["reviews"].max() * 1.2]), yaxis=dict(title=""))
       event = st.plotly_chart(fig, width="stretch", on_select="rerun", selection_mode="points", key=f"bar_{sentiment}")
       points = (event or {}).get("selection", {}).get("points", [])
       if points:

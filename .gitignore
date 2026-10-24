@@ -14,7 +14,7 @@ env/
 
 # Local runtime files
 *.log
-.streamlit/
+.streamlit/secrets.toml
 
 # OS metadata
 .DS_Store
