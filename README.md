@@ -4,7 +4,7 @@ Tech Challenge da Fase 4 da Pós Tech FIAP em IA Science (1IAST).
 
 Um assistente em que gestores e analistas fazem perguntas em linguagem natural sobre as avaliações de clientes da Olist e recebem respostas **geradas a partir de avaliações reais, com cada afirmação ligada à avaliação que a sustenta**. Quando a base não tem evidência suficiente, o sistema recusa a pergunta em vez de inventar uma resposta.
 
-> **Demonstração online:** o link do Streamlit Community Cloud é adicionado aqui depois da publicação (ver [Publicação](#publicação-gratuita-no-streamlit-community-cloud)).
+> **Demonstração online:** [techchallenge4voc-olist.streamlit.app](https://techchallenge4voc-olist.streamlit.app), publicada no Streamlit Community Cloud com o Gemini Flash-Lite. Se o app estiver hibernando, o primeiro acesso leva cerca de um minuto para acordar.
 
 ## Sumário
 
