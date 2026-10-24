@@ -214,6 +214,8 @@ def render_evidences(answer: rp.RAGAnswer, message_index: int):
       if meta.get("delivery_status") == "atrasado" and meta.get("delivery_delay_days") is not None:
         delivery += f" ({meta['delivery_delay_days']} dia(s))"
       badge = " · <span class='cite'>citada</span>" if cited else ""
+      if evidence.same_text_count > 1:
+        badge += f" · mesmo texto em {evidence.same_text_count} avaliações"
       st.markdown(
           f"<div class='{'evidence-cited' if cited else 'evidence-other'}'>"
           f"<b>[R{n}]</b>{badge} · nota <b>{meta.get('review_score')}/5</b> · "
@@ -254,6 +256,7 @@ def render_trace(answer: rp.RAGAnswer):
                 "distância": round(c.distance, 3),
                 "situação": "no contexto" if c.review_id in selected
                 else ("descartada: pouco relevante" if c.distance > retrieval.max_distance
+                      else "agrupada: texto idêntico" if c.review_id in retrieval.duplicate_ids
                       else "descartada: redundante (MMR)"),
                 "nota": c.metadata.get("review_score"),
                 "texto": c.text[:90],

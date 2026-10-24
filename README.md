@@ -95,7 +95,7 @@ Cada etapa abaixo aparece na interface, no painel **"Como a pergunta foi process
 
 **2. Recuperação semântica** (`src/retriever.py`). A pergunta original e a consulta semântica são vetorizadas, e a média normalizada é usada na busca. A seção 7 compara as três opções. Os filtros vão **dentro** da consulta ao ChromaDB (`where`), então os vizinhos mais próximos já pertencem ao recorte pedido. Filtrar depois, como fazia a versão anterior, deixava categorias pequenas quase sem evidência.
 
-**3. Seleção dos conteúdos mais relevantes.** Dos 40 candidatos, saem os que têm distância de cosseno acima de **0,40**. Os restantes são reordenados por **MMR** (Maximal Marginal Relevance, λ = 0,7), que equilibra relevância e diversidade: o contexto cobre temas diferentes em vez de dez variações de "atrasou". Ficam as 10 melhores.
+**3. Seleção dos conteúdos mais relevantes.** Dos 40 candidatos, saem os que têm distância de cosseno acima de **0,40**. Avaliações com texto idêntico (dezenas de clientes escrevem só "Atraso na entrega") viram uma evidência só, anotada com quantas avaliações têm aquele texto. Os restantes são reordenados por **MMR** (Maximal Marginal Relevance, λ = 0,7), que equilibra relevância e diversidade: o contexto cobre temas diferentes em vez de dez variações de "atrasou". Ficam as 10 melhores.
 
 **4. Construção do contexto** (`src/prompts.py`). Cada avaliação entra numerada, com metadados:
 
@@ -173,7 +173,7 @@ O relatório completo está em [`eval/RESULTADOS.md`](eval/RESULTADOS.md).
 
 **Sobre a métrica:** precisão@5 aqui é um proxy lexical. Uma avaliação conta como relevante se contém algum radical esperado para a pergunta ("entreg", "atras", "prazo"…). É barata e reproduzível, boa para comparar estratégias, mas não substitui ler as evidências, que é o que a seção 8 mostra.
 
-Testes unitários: `pytest` (25 testes, sem precisar do modelo nem de chave de API).
+Testes unitários: `pytest` (26 testes, sem precisar do modelo nem de chave de API).
 
 ## 8. Exemplos de perguntas e respostas
 
@@ -183,34 +183,36 @@ Respostas reais geradas por `python -m eval.run_eval --with-llm` com o Gemini Fl
 
 Filtros detectados: nota ≤ 2.
 
-> Os clientes relatam problemas de atrasos, erros de envio e falhas no serviço postal.
+> Os clientes relatam problemas referentes a atrasos, erros nos itens recebidos, falta de entrega e falhas na comunicação do serviço.
 >
-> - **Atrasos na entrega:** Diversos clientes relataram atrasos que variam de 4 a 21 dias [R1], [R3], [R4], [R6], [R8], [R9], [R10].
-> - **Incompletude ou divergência no pedido:** Foram relatados erros onde a entrega não chegou correta ou completa, constando como entregue mas vindo apenas um produto [R2], [R5].
-> - **Falhas de rastreio, informação e atendimento:** Houve relatos de informação confusa sobre a entrega [R4] e falta de tratamento para o problema ocorrido [R10].
-> - **Problemas com os Correios:** Um cliente relatou que os Correios cobraram taxa de entrega mas não entregaram na residência, resultando na devolução do produto antes da retirada [R7].
+> - **Atrasos e descumprimento de prazos:** Há relatos de atrasos que variam de 4 a 14 dias [R1, R3, R4, R6, R8, R10], além de uma menção geral de demora [R9] e reclamações sobre o não cumprimento dos prazos [R8, R10].
+> - **Erros e divergências nos itens entregues:** Clientes apontam que os pedidos chegam incompletos, incorretos [R2] ou com divergências em relação à quantidade de produtos recebidos [R5].
+> - **Falhas na prestação do serviço pelos Correios e falta de suporte:** É relatado que o produto não foi entregue na residência apesar da taxa paga, resultando na devolução do item antes da retirada [R7], além de reclamações sobre a falta de tratamento e resolução dos problemas de entrega [R8].
+> - **Informações confusas:** Um cliente destacou que a informação sobre a entrega é muito confusa [R4].
 >
 > Limite da análise: amostra de 10 avaliações com nota ≤ 2.
 
 | Ref. | Nota | Avaliação citada |
 |---|---|---|
-| R2 | 1 | erro na entrega. a entrega nao chegou correta completa |
-| R4 | 1 | sem comentarios, muito confusa a informação sobre entrega |
-| R5 | 1 | Em partes. Sou cliente há anos, porém sempre há divergências e problemas na entrega, consta como produto entregue, porém foi entregue apenas 1 produto… |
-| R7 | 1 | O serviço de entrega é feita através dos correios e este apesar de ter sido pega taxa entrega, não entrega na residência… |
+| R5 | 1 | Em partes. Sou cliente há anos, porém sempre há divergências e problemas na entrega, consta como produto entregue, porém foi entregue apenas 1 produto, aguardo … |
+| R7 | 1 | O serviço de entrega é feita através dos correios e este apesar de ter sido pega taxa entrega , não entrega na residência.Qdo puder ir fazer a retirada na ag. c… |
+| R9 | 1 | Demora na entrega |
+| R10 | 1 | Pedido não entregue (prazo de entrega não obedecido) |
 
-Os "4 a 21 dias" vêm do metadado `delivery_delay_days` que acompanha cada avaliação no contexto, e não do texto do cliente.
+Os intervalos de atraso em dias vêm do metadado `delivery_delay_days` que acompanha cada avaliação no contexto, e não do texto do cliente. Avaliações com texto idêntico ("Atraso na entrega" aparece várias vezes) entram uma vez só, com a contagem anotada, para sobrar espaço para outros temas.
 
 ### "Quais as reclamações sobre cama, mesa e banho em 2018?"
 
 Filtros detectados: nota ≤ 2, categoria `cama_mesa_banho`, ano 2018.
 
-> As reclamações dos clientes sobre cama, mesa e banho em 2018 na amostra envolvem problemas de entrega, divergências nos itens recebidos e qualidade do produto.
+> As reclamações sobre cama, mesa e banho em 2018 concentram-se em problemas de entrega (atrasos, não recebimento e entregas parciais ou incompletas), falhas no envio dos itens corretos e insatisfação com a qualidade do produto.
 >
-> - **Problemas com o prazo e falhas de entrega:** Clientes relataram atraso na entrega [R5], demora no serviço [R9] e casos em que o produto ainda não havia sido entregue [R3].
-> - **Entregas parciais ou falta de itens:** Houve relatos de recebimento de apenas parte da compra, como a chegada de apenas um produto quando dois foram comprados [R4, R10], entrega de mercadoria fracionada [R8] e falta de itens específicos como o controle remoto [R8].
-> - **Erro no item enviado:** Um cliente relatou ter recebido um tapete incorreto [R7].
+> - **Problemas de entrega e atrasos:** Clientes relataram atrasos de 6 dias [R5], demora generalizada na entrega [R9] e pedidos que ainda não haviam sido entregues [R3].
+> - **Entregas parciais, incompletas ou itens faltantes:** Houve relatos de recebimento de apenas parte dos produtos comprados, como a falta do segundo produto de um pedido [R4], falta do controle remoto da cortina [R8], entrega de apenas uma das duas saias compradas apesar de o rastreio indicar ambas [R10], além de menção genérica a entrega parcial [R8].
+> - **Erro no produto enviado:** Um cliente relatou ter recebido um tapete errado e estar aguardando providências [R7].
 > - **Baixa qualidade do produto:** Um cliente avaliou as toalhas como muito ruins e finas [R2].
+>
+> Limite da análise: Amostra de 10 avaliações recuperadas com nota ≤ 2, categoria cama_mesa_banho e ano de compra 2018.
 
 | Ref. | Nota | Avaliação citada |
 |---|---|---|
@@ -291,7 +293,7 @@ python -m src.vector_store    # -> data/chroma_db/ (cerca de 30 s)
 ### Testes e avaliação
 
 ```bash
-pytest                              # 25 testes unitários
+pytest                              # 26 testes unitários
 python -m eval.run_eval             # recuperação, recusas e ablação
 python -m eval.run_eval --with-llm  # também gera as respostas (requer chave)
 ```

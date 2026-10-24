@@ -241,7 +241,7 @@
     "semantic_query": "reclamacoes entrega",
     "evidences": 10,
     "precision_at_5": 1.0,
-    "mean_distance_top5": 0.15,
+    "mean_distance_top5": 0.186,
     "top_evidences": [
       {
         "review_id": "a1074ef6728469383f2a8bf58fd98e51",
@@ -256,22 +256,22 @@
         "text": "sem comentarios, muito confusa a informação sobre entrega"
       },
       {
-        "review_id": "048f89d5550f6d495dbfb726b23ba2a1",
-        "score": 2,
-        "distance": 0.13,
-        "text": "Atraso na entrega"
-      },
-      {
-        "review_id": "8ea6b221a5c1ef39ce3e0d2011aec396",
-        "score": 1,
-        "distance": 0.13,
-        "text": "Atraso na entrega"
-      },
-      {
         "review_id": "97b1c66cd7fc0a9e984d1435de5189be",
         "score": 1,
         "distance": 0.138,
         "text": "Demora na entrega"
+      },
+      {
+        "review_id": "ef3905df6593f5fa7faebc82fb85e2e6",
+        "score": 1,
+        "distance": 0.144,
+        "text": "Demora a entrega"
+      },
+      {
+        "review_id": "949eca021ed60d00a2d2bda3cc686d4d",
+        "score": 1,
+        "distance": 0.296,
+        "text": "muitos desencontros nas entregas de produtos"
       }
     ]
   },

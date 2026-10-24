@@ -36,6 +36,8 @@ def format_evidence(index: int, evidence) -> str:
       f"[R{index}] nota {meta.get('review_score')}/5 | categoria: {meta.get('product_category_name')}"
       f" | compra: {meta.get('purchase_month')} | entrega: {delivery}"
   )
+  if getattr(evidence, "same_text_count", 1) > 1:
+    header += f" | mesmo texto em {evidence.same_text_count} avaliações recuperadas"
   return f"{header}\n{evidence.text}"
 
 

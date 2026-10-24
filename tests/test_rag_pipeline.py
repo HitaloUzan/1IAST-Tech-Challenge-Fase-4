@@ -132,3 +132,19 @@ def test_filter_defined_question_lifts_the_distance_threshold():
 def test_grouped_citations_are_recognized():
   text = "Atrasos [R1, R3, R6] e itens faltando [R2][R5]; ver também [R4; 7] e [R99]."
   assert rp.extract_citations(text, 10) == [1, 2, 3, 4, 5, 6, 7]
+
+
+def test_identical_texts_are_grouped_into_one_evidence():
+  class SameText(FakeCollection):
+    def query(self, **kwargs):
+      raw = super().query(**kwargs)
+      raw["documents"][0] = ["Atraso na entrega", "atraso na entrega!", "Atraso na entrega", "Veio quebrado", "Cor errada"]
+      return raw
+  pipeline = rp.VoCPipeline(FakeEmbedder(), SameText([0.1, 0.11, 0.12, 0.2, 0.3]), CATEGORIES)
+  answer = pipeline.answer("quais os problemas de entrega?")
+  texts = [e.text for e in answer.evidences]
+  assert len(answer.evidences) == 3
+  assert texts.count("Atraso na entrega") == 1
+  assert next(e for e in answer.evidences if e.text == "Atraso na entrega").same_text_count == 3
+  assert answer.retrieval.duplicate_ids == {"id1", "id2"}
+  assert "mesmo texto em 3 avaliações" in answer.user_prompt

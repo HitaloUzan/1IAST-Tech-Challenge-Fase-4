@@ -11,15 +11,18 @@ Steps, in order:
    search would leave small categories with almost no evidence.
 3. Drop candidates whose cosine distance is above ``max_distance``: they are the
    closest reviews available, not relevant ones.
-4. Re-rank the survivors with Maximal Marginal Relevance so the context covers
+4. Collapse reviews with identical text ("Atraso na entrega" is written by
+   dozens of customers): one copy goes to the context, annotated with how many
+   candidates share it, so the remaining slots bring other themes.
+5. Re-rank the survivors with Maximal Marginal Relevance so the context covers
    different themes instead of ten paraphrases of the same complaint.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
-from src.query_parser import to_chroma_where
+from src.query_parser import normalize, to_chroma_where
 
 DEFAULT_MAX_DISTANCE = 0.40
 DEFAULT_CANDIDATES = 40
@@ -33,6 +36,7 @@ class Evidence:
   text: str
   distance: float
   metadata: dict
+  same_text_count: int = 1
 
   @property
   def similarity(self) -> float:
@@ -45,6 +49,7 @@ class RetrievalResult:
   candidates: list[Evidence]
   where: dict
   max_distance: float
+  duplicate_ids: set = field(default_factory=set)
 
   @property
   def rejected(self) -> list[Evidence]:
@@ -114,11 +119,21 @@ class Retriever:
             raw["ids"][0], raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
         )
     ]
-    relevant_idx = [i for i, e in enumerate(found) if e.distance <= max_distance]
+    first_by_text, duplicate_ids = {}, set()
+    for i, evidence in enumerate(found):
+      if evidence.distance > max_distance:
+        continue
+      key = normalize(evidence.text)
+      if key in first_by_text:
+        found[first_by_text[key]].same_text_count += 1
+        duplicate_ids.add(evidence.review_id)
+      else:
+        first_by_text[key] = i
+    relevant_idx = list(first_by_text.values())
     if not relevant_idx:
       return RetrievalResult([], found, where, max_distance)
 
     vectors = np.asarray(raw["embeddings"][0], dtype=np.float32)[relevant_idx]
     order = mmr(query_vector, vectors, top_k, mmr_lambda)
     evidences = [found[relevant_idx[i]] for i in order]
-    return RetrievalResult(evidences, found, where, max_distance)
+    return RetrievalResult(evidences, found, where, max_distance, duplicate_ids)
