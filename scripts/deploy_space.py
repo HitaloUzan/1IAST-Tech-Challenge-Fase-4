@@ -29,7 +29,7 @@ from huggingface_hub import HfApi
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FILES = ["app.py", "requirements.txt", "Dockerfile"]
-FOLDERS = ["src", "data/processed", "data/index"]
+FOLDERS = ["src", "ui", ".streamlit", "data/processed", "data/index"]
 SPACE_README = """---
 title: Voice of Customer Olist
 emoji: 🛍️
