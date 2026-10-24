@@ -63,6 +63,7 @@ p, li {{ line-height: 1.6; }}
 .cite {{ font-family: var(--mono); font-size: 0.74em; color: var(--accent); background: rgba(232, 51, 109, 0.1);
   border: 1px solid rgba(232, 51, 109, 0.28); border-radius: 6px; padding: 0 5px; white-space: nowrap; }}
 
+.cite-note {{ font-size: 0.8rem; color: var(--faint); margin: 6px 0 12px; }}
 .callout {{ border: 1px solid var(--border); border-left: 3px solid var(--warning); border-radius: 10px;
   padding: 14px 16px; background: var(--surface); display: grid; gap: 6px; margin: 4px 0 10px; }}
 .callout.info {{ border-left-color: var(--neutral); }}

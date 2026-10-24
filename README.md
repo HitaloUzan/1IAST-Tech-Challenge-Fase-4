@@ -68,7 +68,7 @@ A tela inicial mostra os números que contextualizam as perguntas: 25,6% das ava
 
 ![Painel inicial](docs/img/painel.png)
 
-Cada resposta traz o modelo usado, quantas avaliações entraram no contexto, quantas foram citadas e os filtros aplicados. As citações `[R#]` apontam para a lista de evidências.
+Cada resposta traz o modelo usado, quantas avaliações entraram no contexto, quantas foram citadas e os filtros aplicados. As citações `[R#]` (R de **referência**) apontam para a avaliação de mesmo número na lista de evidências logo abaixo da resposta.
 
 ![Resposta com citações](docs/img/resposta.png)
 
@@ -99,7 +99,7 @@ Código: `src/preprocessing.py`. Dados de entrada: os quatro CSVs da Olist em `d
 
 ## 4. Pipeline RAG
 
-Cada etapa abaixo aparece na interface, no painel **"Como a pergunta foi processada"** de cada resposta.
+Cada etapa abaixo aparece na interface, no painel **"Como a resposta foi construída"** de cada resposta.
 
 **1. Transformação da pergunta** (`src/query_parser.py`). Regras determinísticas, para que cada decisão possa ser explicada:
 - **Rota:** perguntas quantitativas ("quais categorias têm mais reclamações?", "qual a porcentagem…") vão para contagem exata em pandas, sem LLM. Um modelo que lê 10 avaliações não sabe contar 42 mil. Perguntas qualitativas seguem para o RAG.
@@ -126,6 +126,8 @@ Entrega atrasada e o produto veio com defeito
 
 Na interface, cada `[R#]` é destacado, e as avaliações citadas aparecem primeiro na lista de evidências, com nota, categoria, data, status de entrega, similaridade e `review_id`.
 
+> **Como ler as citações `[R#]`.** O "R" vem de **referência**. Antes de chamar o modelo, as avaliações recuperadas são numeradas de R1 a R10 no contexto, e o modelo só pode fazer uma afirmação citando o número da avaliação que a sustenta. `[R7]` aponta para a sétima avaliação da lista "Avaliações usadas como evidência"; `[R2, R5]` indica que a mesma afirmação aparece em duas avaliações. É isso que permite rastrear cada insight até o texto original do cliente (requisito 3 do enunciado). A numeração vale só para aquela resposta: o R1 de uma pergunta não é o mesmo R1 de outra. O identificador permanente de cada avaliação é o `review_id`, mostrado no cartão da evidência.
+
 ## 5. Perguntas sem evidência suficiente
 
 São três camadas, da mais barata para a mais cara:
@@ -138,7 +140,7 @@ São três camadas, da mais barata para a mais cara:
 
 Toda recusa diz o motivo: quais filtros foram usados, quantas avaliações passaram e qual era a distância da mais próxima.
 
-A camada 1a existe porque um modelo de embeddings pequeno sempre acha uma avaliação "mais próxima", mesmo para perguntas sem relação. Na calibração, "receita de bolo de chocolate" encontrava a avaliação "Pedi de Baunilha e recebi de CHOCOLATE" a uma distância de 0,18, menor que a de várias perguntas legítimas. Um limiar sozinho não separa os dois casos.
+A camada 1a existe porque um modelo de embeddings pequeno sempre acha uma avaliação "mais próxima", mesmo para perguntas sem relação. Na calibração, "receita de bolo de chocolate" encontrava a avaliação "Pedi de Baunilha e recebi de CHOCOLATE" a uma distância de cerca de 0,2, menor que a de várias perguntas legítimas. Um limiar sozinho não separa os dois casos.
 
 **Exceção calibrada:** quando a pergunta só expressa sentimento e filtros ("reclamações sobre cama, mesa e banho em 2018"), a consulta semântica fica reduzida a "reclamações". Nesse caso o recorte já define a relevância (nota ≤ 2, categoria e ano) e o limiar de distância não é aplicado.
 
@@ -191,7 +193,7 @@ Testes unitários: `pytest` (29 testes, sem precisar do modelo nem de chave de A
 
 ## 8. Exemplos de perguntas e respostas
 
-Respostas reais geradas por `python -m eval.run_eval --with-llm` com o Gemini Flash-Lite. As 22 respostas completas, com as avaliações citadas, estão em [`eval/RESULTADOS.md`](eval/RESULTADOS.md#respostas-geradas).
+Respostas reais geradas por `python -m eval.run_eval --with-llm` com o Gemini Flash-Lite. Os códigos `[R#]` são referências às avaliações listadas na tabela abaixo de cada resposta. As 22 respostas completas, com as avaliações citadas, estão em [`eval/RESULTADOS.md`](eval/RESULTADOS.md#respostas-geradas).
 
 ### "O que os clientes relatam sobre problemas relacionados à entrega?"
 

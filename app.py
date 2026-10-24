@@ -226,6 +226,7 @@ def render_answer(answer: rp.RAGAnswer, index: int):
     st.markdown(ui.chips([model_name(answer.llm_label), f"{len(answer.evidences)} avaliações no contexto",
                           f"{len(answer.cited)} citadas", *filters], accent_first=True), unsafe_allow_html=True)
     st.markdown(ui.answer(answer.text), unsafe_allow_html=True)
+    st.markdown(ui.citation_note(len(answer.cited), len(answer.evidences)), unsafe_allow_html=True)
     if answer.has_uncited_answer:
       st.markdown(ui.callout("Resposta sem citações",
                              "O modelo não citou nenhuma avaliação. Confira as evidências antes de usar.", "error"),

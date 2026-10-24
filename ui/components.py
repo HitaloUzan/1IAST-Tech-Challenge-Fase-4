@@ -63,6 +63,12 @@ def answer(text: str) -> str:
   return CITATION_GROUP_PATTERN.sub(lambda m: f'<span class="cite">{m.group(0)}</span>', safe)
 
 
+def citation_note(cited: int, total: int) -> str:
+  return (f'<p class="cite-note">Os códigos <span class="cite">[R1]</span>, <span class="cite">[R2]</span>… são '
+          f'referências: cada um aponta para a avaliação de mesmo número na lista abaixo. '
+          f'{cited} de {total} avaliações recuperadas foram citadas.</p>')
+
+
 def callout(title: str, body: str, kind: str = "") -> str:
   return (f'<div class="callout {kind}"><span class="callout-title">{esc(title)}</span>'
           f'<span class="callout-body">{esc(body)}</span></div>')
