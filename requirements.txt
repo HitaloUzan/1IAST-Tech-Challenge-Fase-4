@@ -1,6 +1,8 @@
-# Python 3.12 (tested). For a smaller CPU-only PyTorch, install first:
-#   pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
-torch==2.14.1
+# Python 3.12 (tested).
+# On Linux (servers, Streamlit Community Cloud, Docker) PyTorch comes as the
+# CPU-only wheel, about 10x smaller than the default build with CUDA.
+torch @ https://download.pytorch.org/whl/cpu/torch-2.14.1%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl ; sys_platform == "linux" and platform_machine == "x86_64" and python_version == "3.12"
+torch==2.14.1 ; sys_platform != "linux" or platform_machine != "x86_64" or python_version != "3.12"
 sentence-transformers==6.2.0
 transformers==5.20.2
 chromadb==1.5.9

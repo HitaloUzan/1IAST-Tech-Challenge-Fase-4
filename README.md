@@ -4,7 +4,7 @@ Tech Challenge da Fase 4 da Pós Tech FIAP em IA Science (1IAST).
 
 Um assistente em que gestores e analistas fazem perguntas em linguagem natural sobre as avaliações de clientes da Olist e recebem respostas **geradas a partir de avaliações reais, com cada afirmação ligada à avaliação que a sustenta**. Quando a base não tem evidência suficiente, o sistema recusa a pergunta em vez de inventar uma resposta.
 
-> **Demonstração online:** o link do Hugging Face Spaces é adicionado aqui depois da publicação (ver [Publicação](#publicação-no-hugging-face-spaces)).
+> **Demonstração online:** o link do Streamlit Community Cloud é adicionado aqui depois da publicação (ver [Publicação](#publicação-gratuita-no-streamlit-community-cloud)).
 
 ## Sumário
 
@@ -246,7 +246,7 @@ Filtros detectados: nota ≤ 2, categoria `cama_mesa_banho`, ano 2018.
 | Gemini Flash-Lite (padrão) / Groq / Ollama | Geração | As três opções são gratuitas (camada free ou execução local): o projeto não tem custo de API. O Flash-Lite respondeu em cerca de 2 s com a mesma qualidade de citação do Gemini Flash, que levava mais de 1 minuto por resposta na camada gratuita |
 | Streamlit + Plotly | Interface | Chat, painel clicável e rastreabilidade sem front-end separado |
 | pytest | Testes | Pipeline testado com embedder, banco e LLM falsos |
-| Docker + Hugging Face Spaces | Publicação | Plano gratuito com memória suficiente para PyTorch + ChromaDB |
+| Streamlit Community Cloud (ou Docker) | Publicação | Gratuito, publica direto do GitHub e guarda as chaves como secrets |
 
 **Por que LangChain só na camada do modelo.** O enunciado pede que a equipe *demonstre* a transformação da pergunta, a recuperação e a seleção (pág. 7). Uma chain pronta de recuperação esconderia essas etapas. Por isso a busca, os filtros, o limiar e o MMR estão escritos de forma explícita, e o LangChain fica onde agrega: trocar de provedor de LLM sem mudar o resto do código. A ideia vem da versão anterior do projeto, que já defendia transparência e contagens determinísticas. Ela foi mantida: **números vêm do pandas, texto vem do LLM**.
 
@@ -268,9 +268,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate
 source .venv/bin/activate
 
-# PyTorch só para CPU (opcional, bem menor que a versão padrão)
-pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+pip install -r requirements.txt   # no Linux já instala o PyTorch só de CPU
 
 # Configurar o LLM (opcional; sem isso o app roda em modo só busca)
 cp .env.example .env    # e preencha GOOGLE_API_KEY ou GROQ_API_KEY
@@ -308,14 +306,22 @@ python -m eval.run_eval --with-llm  # também gera as respostas (requer chave)
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Só para Ollama |
 | `MAX_LLM_CALLS_PER_SESSION` | `20` | Limite de perguntas com geração por sessão (protege a cota gratuita na demonstração pública) |
 
-### Publicação no Hugging Face Spaces
+### Publicação gratuita no Streamlit Community Cloud
 
-```bash
-# no .env: HF_TOKEN (token de escrita) e a chave do LLM
-python -m scripts.deploy_space --space <usuario-hf>/voc-olist
-```
+1. Entre em [share.streamlit.io](https://share.streamlit.io) com a conta do GitHub dona do repositório.
+2. **Create app → Deploy a public app from GitHub**: escolha o repositório, a branch e `app.py` como arquivo principal.
+3. Em **Advanced settings**, escolha **Python 3.12** e cole em **Secrets**:
 
-O script cria o Space (Docker, CPU gratuita), envia só os arquivos necessários e cadastra a chave do LLM como **secret** do Space, sem gravá-la em nenhum arquivo. O primeiro build leva alguns minutos. Depois de um tempo sem uso o Space hiberna, e o primeiro acesso seguinte demora um pouco mais. Se a cota gratuita do LLM acabar, o app continua em modo só busca.
+   ```toml
+   LLM_PROVIDER = "gemini"
+   GOOGLE_API_KEY = "sua-chave"
+   ```
+
+4. Clique em **Deploy**. O primeiro build instala o PyTorch só de CPU (o `requirements.txt` já aponta para ele no Linux), baixa o modelo de embeddings e monta a coleção no ChromaDB. Leva alguns minutos.
+
+As chaves ficam nos *secrets* do Streamlit, que viram variáveis de ambiente, e nunca entram no repositório. O app usa cerca de 1,5 GB de memória com a base inteira carregada. Depois de um tempo sem acesso ele hiberna, e o primeiro acesso seguinte demora para acordar. Se a cota gratuita do LLM acabar, o app continua em modo só busca.
+
+**Outras opções:** o `Dockerfile` roda em qualquer serviço que aceite contêineres (porta 7860). O script `scripts/deploy_space.py` publica no Hugging Face Spaces, mas desde 2026 Spaces com Docker no hardware gratuito exigem a assinatura PRO.
 
 ## 11. Estrutura do repositório
 
@@ -338,12 +344,13 @@ O script cria o Space (Docker, CPU gratuita), envia só os arquivos necessários
 │   ├── RESULTADOS.md         # Relatório gerado
 │   └── results/              # Resultados em JSON
 ├── tests/                    # pytest
-├── scripts/deploy_space.py   # Publicação no Hugging Face Spaces
+├── scripts/deploy_space.py   # Publicação no Hugging Face Spaces (requer PRO)
 ├── data/
 │   ├── raw/                  # CSVs originais da Olist
 │   ├── processed/            # reviews_clean.csv (42.370 avaliações)
 │   └── index/                # embeddings.npy + ids
-├── Dockerfile                # Imagem do Space
+├── .streamlit/config.toml     # Tema escuro do app
+├── Dockerfile                # Imagem para qualquer serviço de contêiner
 ├── requirements.txt
 └── .env.example
 ```

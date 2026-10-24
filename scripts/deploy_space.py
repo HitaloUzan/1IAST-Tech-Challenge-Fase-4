@@ -1,4 +1,8 @@
-"""Publishes the app to a Hugging Face Space (Docker SDK, free CPU tier).
+"""Publishes the app to a Hugging Face Space (Docker SDK).
+
+Since 2026, Docker and Gradio Spaces on cpu-basic require a Hugging Face PRO
+subscription (the API answers 402 otherwise). The free path for this project is
+Streamlit Community Cloud (see README); this script stays for teams with PRO.
 
 Usage:
   python -m scripts.deploy_space --space <usuario-hf>/voc-olist
