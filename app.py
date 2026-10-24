@@ -15,7 +15,7 @@ from ui.theme import category_name, model_name, month_label, number, percent
 
 MAX_LLM_CALLS_PER_SESSION = int(os.getenv("MAX_LLM_CALLS_PER_SESSION", "20"))
 EVIDENCE_PAGE_SIZE = 5
-AUTO = "Automática"
+AUTO = "Auto"
 SUGGESTIONS = {
     "Principais problemas": "Quais são os principais problemas relatados pelos clientes em suas avaliações?",
     "Problemas de entrega": "O que os clientes relatam sobre problemas relacionados à entrega?",
@@ -70,10 +70,11 @@ def on_suggestion():
 with st.sidebar:
   st.markdown("### Filtros da busca")
   st.caption("Somam-se aos filtros que o sistema detecta na própria pergunta.")
-  score_filter = st.segmented_control("Nota", [AUTO, "1–2", "3", "4–5"], default=AUTO, key="f_score")
+  score_filter = st.segmented_control("Nota", [AUTO, "1–2", "3", "4–5"], default=AUTO, key="f_score", width="stretch")
   category_filter = st.selectbox("Categoria", [AUTO, *categories], key="f_category",
-                                 format_func=lambda c: c if c == AUTO else category_name(c))
-  year_filter = st.segmented_control("Ano da compra", ["Todos", "2016", "2017", "2018"], default="Todos", key="f_year")
+                                 format_func=lambda c: "Detectar pela pergunta" if c == AUTO else category_name(c))
+  year_filter = st.selectbox("Ano da compra", ["Todos", "2016", "2017", "2018"], key="f_year",
+                             format_func=lambda y: "Todos os anos" if y == "Todos" else y)
   late_filter = st.toggle("Só pedidos atrasados ou não entregues", key="f_late")
   st.divider()
   if llm_enabled:
@@ -269,7 +270,7 @@ def render_home():
                            "Números exatos sobre a base inteira. Clique numa categoria para investigar os motivos."),
                 unsafe_allow_html=True)
   choice = toggle.segmented_control("Visão", list(SENTIMENT_LABELS), default="Reclamações", key="home_sentiment",
-                                    label_visibility="collapsed")
+                                    label_visibility="collapsed", width="stretch")
   sentiment = SENTIMENT_LABELS.get(choice or "Reclamações")
   noun = "reclamações" if sentiment == "negativa" else "elogios"
 

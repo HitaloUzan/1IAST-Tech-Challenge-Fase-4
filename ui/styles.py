@@ -13,8 +13,8 @@ CSS = f"""
 
 [data-testid="stAppDeployButton"], [data-testid="stDecoration"] {{ display: none; }}
 [data-testid="stHeader"] {{ background: transparent; }}
-.block-container {{ max-width: 1160px; padding-top: 2.6rem; padding-bottom: 7rem; }}
-[data-testid="stBottomBlockContainer"] {{ max-width: 1160px; }}
+.block-container {{ max-width: min(1360px, 92vw); padding-top: 2.6rem; padding-bottom: 7rem; }}
+[data-testid="stBottomBlockContainer"] {{ max-width: min(1360px, 92vw); }}
 h1, h2, h3, h4 {{ letter-spacing: -0.01em; text-wrap: balance; }}
 p, li {{ line-height: 1.6; }}
 [data-testid="stExpander"] details {{ border-color: var(--border); background: transparent; }}
@@ -91,8 +91,10 @@ p, li {{ line-height: 1.6; }}
 
 .stat-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 8px 0 4px; }}
 
-@media (max-width: 860px) {{
+@media (max-width: 960px) {{
   .kpi-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+  .block-container [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap; row-gap: 1rem; }}
+  .block-container [data-testid="stColumn"] {{ flex: 1 1 100% !important; min-width: 100% !important; }}
 }}
 @media (max-width: 640px) {{
   .block-container {{ padding-top: 1.6rem; padding-left: 1rem; padding-right: 1rem; }}
