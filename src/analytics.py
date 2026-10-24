@@ -67,3 +67,25 @@ class ReviewAnalytics:
   def delivery_breakdown(self, category: str | None = None) -> pd.Series:
     df = self.df if category is None else self.df[self.df["product_category_name"] == category]
     return df.groupby("delivery_status")["review_score"].agg(["count", "mean"])
+
+  def monthly_rates(self, min_reviews: int = 300) -> pd.DataFrame:
+    """Share of complaints and praise per purchase month.
+
+    Months with fewer than ``min_reviews`` written reviews (the start of 2016
+    and the tail of 2018 in this dataset) are left out: a rate over a handful
+    of reviews swings too much to read as a trend.
+    """
+    grouped = self.df.groupby("purchase_month")["sentiment"]
+    table = pd.DataFrame({
+        "reviews": grouped.size(),
+        "negative_rate": grouped.apply(lambda s: (s == "negativa").mean()),
+        "positive_rate": grouped.apply(lambda s: (s == "positiva").mean()),
+    })
+    return table[table["reviews"] >= min_reviews].reset_index()
+
+  def late_delivery_share(self, sentiment: str) -> float:
+    """Share of reviews with the given sentiment whose order was late or never delivered."""
+    subset = self.df[self.df["sentiment"] == sentiment]
+    if subset.empty:
+      return 0.0
+    return float(subset["delivery_status"].isin(["atrasado", "nao_entregue"]).mean())
