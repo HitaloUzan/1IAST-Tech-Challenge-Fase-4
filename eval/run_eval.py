@@ -157,6 +157,23 @@ def write_markdown(rows, grid, answers):
       f"{pct(summary['out_of_scope_blocked_layer1'], summary['out_of_scope_total'])}. "
       "As demais chegam ao modelo, que deve responder SEM_EVIDENCIA (camada 2).",
       "",
+  ]
+  if answers:
+    in_scope = [a for a in answers if a["expect"] == "answer"]
+    out_scope = [a for a in answers if a["expect"] == "refuse"]
+    refused = {rp.OUT_OF_SCOPE, rp.NO_EVIDENCE, rp.LLM_REFUSED}
+    times = [a["seconds"] for a in answers if a["status"] in (rp.ANSWERED, rp.LLM_REFUSED)]
+    lines += [
+        f"Com o LLM (`{next((a['model'] for a in answers if a['model']), '-')}`):",
+        "",
+        f"- Perguntas do escopo respondidas com pelo menos uma citação: "
+        f"{pct(sum(a['status'] == rp.ANSWERED and bool(a['cited']) for a in in_scope), len(in_scope))}",
+        f"- Perguntas fora do escopo recusadas no total (camadas 1 e 2): "
+        f"{pct(sum(a['status'] in refused for a in out_scope), len(out_scope))}",
+        f"- Tempo médio das chamadas ao modelo: {statistics.mean(times):.1f} s" if times else "",
+        "",
+    ]
+  lines += [
       "## Por pergunta",
       "",
       "| Pergunta | Esperado | Resultado | Filtros | Evidências | Precisão@5 | Distância média top 5 |",

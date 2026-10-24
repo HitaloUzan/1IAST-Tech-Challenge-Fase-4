@@ -150,13 +150,16 @@ Como os filtros entram no `where` do ChromaDB, a busca roda só dentro do recort
 
 O relatório completo está em [`eval/RESULTADOS.md`](eval/RESULTADOS.md).
 
-**Resultado com a configuração final** (consulta híbrida, limiar 0,40):
+**Resultado com a configuração final** (consulta híbrida, limiar 0,40, `gemini-flash-lite-latest`):
 
 | Métrica | Resultado |
 |---|---|
 | Perguntas do escopo com evidência suficiente | 13/13 |
 | Precisão@5 média (proxy lexical) | 0,92 |
-| Perguntas fora do escopo barradas antes do LLM | 8/9 (a 9ª, "lucro líquido da Olist", chega ao modelo, que deve recusar) |
+| Perguntas do escopo respondidas pelo LLM com citações | 13/13 |
+| Perguntas fora do escopo barradas antes do LLM | 8/9 |
+| Perguntas fora do escopo recusadas no total | 9/9 (a 9ª, "lucro líquido da Olist em 2018", foi recusada pelo próprio modelo) |
+| Tempo médio de geração | cerca de 2 s |
 
 **Escolha da estratégia de consulta** (precisão@5 / fora do escopo barradas, com o limiar 0,40):
 
@@ -170,36 +173,51 @@ O relatório completo está em [`eval/RESULTADOS.md`](eval/RESULTADOS.md).
 
 **Sobre a métrica:** precisão@5 aqui é um proxy lexical. Uma avaliação conta como relevante se contém algum radical esperado para a pergunta ("entreg", "atras", "prazo"…). É barata e reproduzível, boa para comparar estratégias, mas não substitui ler as evidências, que é o que a seção 8 mostra.
 
-Testes unitários: `pytest` (24 testes, sem precisar do modelo nem de chave de API).
+Testes unitários: `pytest` (25 testes, sem precisar do modelo nem de chave de API).
 
 ## 8. Exemplos de perguntas e respostas
 
-As respostas geradas pelo LLM para as 22 perguntas, com as avaliações citadas, ficam em [`eval/RESULTADOS.md`](eval/RESULTADOS.md#respostas-geradas), produzidas por `python -m eval.run_eval --with-llm`. Abaixo estão as evidências que a busca entrega ao modelo, extraídas de `eval/results/retrieval.json`.
+Respostas reais geradas por `python -m eval.run_eval --with-llm` com o Gemini Flash-Lite. As 22 respostas completas, com as avaliações citadas, estão em [`eval/RESULTADOS.md`](eval/RESULTADOS.md#respostas-geradas).
 
-**"O que os clientes relatam sobre problemas relacionados à entrega?"** · filtros: nota ≤ 2
+### "O que os clientes relatam sobre problemas relacionados à entrega?"
 
-| Ref. | Nota | Distância | Avaliação |
-|---|---|---|---|
-| R1 | 1 | 0,18 | Atraso na entrega |
-| R2 | 1 | 0,24 | erro na entrega. a entrega nao chegou correta completa |
-| R3 | 1 | 0,25 | TERRIVEL ESTE PROBLEMA DA ENTREGA |
-| R5 | 1 | 0,31 | Em partes. Sou cliente há anos, porém sempre há divergências e problemas na entrega, consta como produto entre[gue]… |
+Filtros detectados: nota ≤ 2.
 
-**"Quais aspectos da experiência de compra são mais elogiados pelos clientes?"** · filtros: nota ≥ 4
+> Os clientes relatam problemas de atrasos, erros de envio e falhas no serviço postal.
+>
+> - **Atrasos na entrega:** Diversos clientes relataram atrasos que variam de 4 a 21 dias [R1], [R3], [R4], [R6], [R8], [R9], [R10].
+> - **Incompletude ou divergência no pedido:** Foram relatados erros onde a entrega não chegou correta ou completa, constando como entregue mas vindo apenas um produto [R2], [R5].
+> - **Falhas de rastreio, informação e atendimento:** Houve relatos de informação confusa sobre a entrega [R4] e falta de tratamento para o problema ocorrido [R10].
+> - **Problemas com os Correios:** Um cliente relatou que os Correios cobraram taxa de entrega mas não entregaram na residência, resultando na devolução do produto antes da retirada [R7].
+>
+> Limite da análise: amostra de 10 avaliações com nota ≤ 2.
 
-| Ref. | Nota | Distância | Avaliação |
-|---|---|---|---|
-| R1 | 5 | 0,16 | satisfeita com a compra |
-| R2 | 5 | 0,17 | Ótimo vendedor! Produto de qualidade, excelência no processo de compra. |
-| R3 | 5 | 0,17 | excelente experiência de compra. Obrigado |
-
-**"Quais as reclamações sobre cama, mesa e banho em 2018?"** · filtros: nota ≤ 2, categoria `cama_mesa_banho`, ano 2018
-
-| Ref. | Nota | Avaliação |
+| Ref. | Nota | Avaliação citada |
 |---|---|---|
-| R1 | 1 | Prazo de entrega |
+| R2 | 1 | erro na entrega. a entrega nao chegou correta completa |
+| R4 | 1 | sem comentarios, muito confusa a informação sobre entrega |
+| R5 | 1 | Em partes. Sou cliente há anos, porém sempre há divergências e problemas na entrega, consta como produto entregue, porém foi entregue apenas 1 produto… |
+| R7 | 1 | O serviço de entrega é feita através dos correios e este apesar de ter sido pega taxa entrega, não entrega na residência… |
+
+Os "4 a 21 dias" vêm do metadado `delivery_delay_days` que acompanha cada avaliação no contexto, e não do texto do cliente.
+
+### "Quais as reclamações sobre cama, mesa e banho em 2018?"
+
+Filtros detectados: nota ≤ 2, categoria `cama_mesa_banho`, ano 2018.
+
+> As reclamações dos clientes sobre cama, mesa e banho em 2018 na amostra envolvem problemas de entrega, divergências nos itens recebidos e qualidade do produto.
+>
+> - **Problemas com o prazo e falhas de entrega:** Clientes relataram atraso na entrega [R5], demora no serviço [R9] e casos em que o produto ainda não havia sido entregue [R3].
+> - **Entregas parciais ou falta de itens:** Houve relatos de recebimento de apenas parte da compra, como a chegada de apenas um produto quando dois foram comprados [R4, R10], entrega de mercadoria fracionada [R8] e falta de itens específicos como o controle remoto [R8].
+> - **Erro no item enviado:** Um cliente relatou ter recebido um tapete incorreto [R7].
+> - **Baixa qualidade do produto:** Um cliente avaliou as toalhas como muito ruins e finas [R2].
+
+| Ref. | Nota | Avaliação citada |
+|---|---|---|
 | R2 | 2 | As toalhas muito ruins , finas |
-| R3 | 1 | Avaliação prejudicada. Produto ainda não foi entregue !!! |
+| R7 | 1 | Me entregaram um tapete errado. Estou aguardando providencias |
+| R8 | 2 | Entrega parcial .2 mercadoria 1 entrega.me entregarao cortina falta conteole remoto |
+| R10 | 1 | APENAS 1. EU COMPREI 2 SAIAS DISTINTAS E SÓ RECEBI UMA. NO RASTREIO, APARECEM ENTREGUES AS DUAS. |
 
 **Recusas**
 
@@ -208,6 +226,7 @@ As respostas geradas pelo LLM para as 22 perguntas, com as avaliações citadas,
 | Qual a capital da França? | Escopo | "Essa pergunta está fora do escopo da base de conhecimento…" |
 | Qual o preço do bitcoin hoje? | Relevância | "Não encontrei avaliações suficientes… 0 avaliação(ões) ficaram dentro do limiar de relevância" |
 | Como trocar o óleo do carro? | Relevância | Mesmo com o filtro automático da categoria `automotivo`, nenhuma avaliação passa do limiar |
+| Qual foi o lucro líquido da Olist em 2018? | Modelo | As avaliações recuperadas falam de custo-benefício; o modelo respondeu `SEM_EVIDENCIA` e o app mostrou a recusa |
 
 **Perguntas quantitativas** (respondidas com contagem exata, sem LLM):
 - "Quais categorias têm mais reclamações?" → `cama_mesa_banho` lidera em volume (1.139 reclamações), mas a tabela mostra também a **taxa na categoria**: 26,2%, contra 29,3% de `informatica_acessorios`. Volume e taxa contam histórias diferentes.
@@ -222,7 +241,7 @@ As respostas geradas pelo LLM para as 22 perguntas, com as avaliações citadas,
 | sentence-transformers (MiniLM multilíngue) | Embeddings | Gratuito, local, bom em português, roda em CPU |
 | ChromaDB | Banco vetorial | Persistente, sem servidor, com filtros de metadados na própria consulta |
 | LangChain (`langchain-core` + integrações) | Camada do LLM | Gemini, Groq e Ollama com a mesma interface, trocados por uma variável |
-| Gemini (padrão) / Groq / Ollama | Geração | As três opções são gratuitas (camada free ou execução local): o projeto não tem custo de API |
+| Gemini Flash-Lite (padrão) / Groq / Ollama | Geração | As três opções são gratuitas (camada free ou execução local): o projeto não tem custo de API. O Flash-Lite respondeu em cerca de 2 s com a mesma qualidade de citação do Gemini Flash, que levava mais de 1 minuto por resposta na camada gratuita |
 | Streamlit + Plotly | Interface | Chat, painel clicável e rastreabilidade sem front-end separado |
 | pytest | Testes | Pipeline testado com embedder, banco e LLM falsos |
 | Docker + Hugging Face Spaces | Publicação | Plano gratuito com memória suficiente para PyTorch + ChromaDB |
@@ -272,7 +291,7 @@ python -m src.vector_store    # -> data/chroma_db/ (cerca de 30 s)
 ### Testes e avaliação
 
 ```bash
-pytest                              # 24 testes unitários
+pytest                              # 25 testes unitários
 python -m eval.run_eval             # recuperação, recusas e ablação
 python -m eval.run_eval --with-llm  # também gera as respostas (requer chave)
 ```
@@ -282,7 +301,7 @@ python -m eval.run_eval --with-llm  # também gera as respostas (requer chave)
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `LLM_PROVIDER` | `gemini` | `gemini`, `groq` ou `ollama` |
-| `LLM_MODEL` | por provedor | `gemini-2.5-flash`, `llama-3.3-70b-versatile` ou `llama3.1:8b` |
+| `LLM_MODEL` | por provedor | `gemini-flash-lite-latest`, `openai/gpt-oss-120b` (Groq) ou `llama3.1:8b` (Ollama) |
 | `GOOGLE_API_KEY` / `GROQ_API_KEY` | vazio | Chave do provedor escolhido |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Só para Ollama |
 | `MAX_LLM_CALLS_PER_SESSION` | `20` | Limite de perguntas com geração por sessão (protege a cota gratuita na demonstração pública) |
@@ -334,4 +353,4 @@ O script cria o Space (Docker, CPU gratuita), envia só os arquivos necessários
 - **Métrica de precisão:** a precisão@5 da avaliação é um proxy lexical, sem rótulos humanos de relevância.
 - **Limiar calibrado em 22 perguntas:** o valor 0,40 foi escolhido com margem, mas num conjunto pequeno.
 - **Categoria do pedido:** em 455 pedidos com mais de uma categoria, vale a do item mais caro.
-- **Camada gratuita do LLM:** tem limite de requisições. Os nomes de modelo padrão podem mudar com o tempo e se ajustam por `LLM_MODEL`.
+- **Camada gratuita do LLM:** tem limite de requisições. Os provedores aposentam modelos com frequência (durante o projeto, o `gemini-2.5-flash` e o `llama-3.3-70b-versatile` deixaram de estar disponíveis para contas novas). Por isso o padrão do Gemini é o apelido `gemini-flash-lite-latest`, e qualquer modelo pode ser trocado por `LLM_MODEL`.
